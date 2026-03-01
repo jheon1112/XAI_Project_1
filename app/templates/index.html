@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>청년 정책 XAI 상담소</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col font-sans">
+
+    <header class="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                <i class="fa-solid fa-comments-dollar text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-slate-800">청년 정책 XAI 상담소</h1>
+                <p class="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Local Llama 3.1 Engine</p>
+            </div>
+        </div>
+    </header>
+
+    <main id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold">AI</div>
+            <div class="bg-white border p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] text-sm leading-relaxed text-slate-700">
+                안녕하세요 주헌님! 어떤 정책 지원이나 금융 상품이 궁금하신가요? 상황을 말씀해 주시면 최적의 지원책을 분석해 드릴게요.
+            </div>
+        </div>
+    </main>
+
+    <footer class="p-4 bg-white border-t sticky bottom-0">
+        <form id="chat-form" class="max-w-4xl mx-auto flex gap-2">
+            <input type="text" id="user-input" autocomplete="off" placeholder="예: 서울 사는 4학년 취준생인데 월세 지원이 궁금해" 
+                   class="flex-1 bg-slate-100 border-none rounded-xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            <button type="submit" id="send-btn" class="bg-blue-600 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-blue-700 shadow-md active:scale-95 transition-all">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        const form = document.getElementById('chat-form');
+        const input = document.getElementById('user-input');
+        const chatWindow = document.getElementById('chat-window');
+        const sendBtn = document.getElementById('send-btn');
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            appendMessage('user', msg);
+            input.value = '';
+            sendBtn.disabled = true;
+            const loadingId = appendMessage('bot', 'AI가 분석 중입니다...');
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                updateMessage(loadingId, data.answer);
+            } catch (err) {
+                updateMessage(loadingId, '서버 응답 오류가 발생했습니다. (백엔드 터미널을 확인하세요)');
+            } finally {
+                sendBtn.disabled = false;
+            }
+        };
+
+        function appendMessage(sender, text) {
+            const id = Date.now();
+            const isUser = sender === 'user';
+            const html = `
+                <div id="${id}" class="flex ${isUser ? 'flex-row-reverse' : ''} gap-3 fade-in">
+                    <div class="w-8 h-8 rounded-full ${isUser ? 'bg-slate-800 text-white' : 'bg-blue-100 text-blue-600'} flex items-center justify-center text-[10px] font-bold shadow-sm">
+                        ${isUser ? 'ME' : 'AI'}
+                    </div>
+                    <div class="${isUser ? 'bg-blue-600 text-white' : 'bg-white border text-slate-700'} p-4 rounded-2xl ${isUser ? 'rounded-tr-none' : 'rounded-tl-none'} shadow-sm max-w-[85%] text-sm leading-relaxed">
+                        ${text}
+                    </div>
+                </div>`;
+            chatWindow.insertAdjacentHTML('beforeend', html);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return id;
+        }
+
+        function updateMessage(id, text) {
+            document.getElementById(id).querySelector('.max-w-\\[85\\%\\]').innerText = text;
+        }
+    </script>
+</body>
+</html>
