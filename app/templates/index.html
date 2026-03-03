@@ -29,14 +29,14 @@
         <div class="flex gap-3">
             <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold">AI</div>
             <div class="bg-white border p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] text-sm leading-relaxed text-slate-700">
-                안녕하세요 주헌님! 어떤 정책 지원이나 금융 상품이 궁금하신가요? 상황을 말씀해 주시면 최적의 지원책을 분석해 드릴게요.
+                안녕하세요! 어떤 정책 지원이나 금융 지원이 궁금하신가요? 상황을 말씀해 주시면 최적의 지원책을 분석해 드릴게요.
             </div>
         </div>
     </main>
 
     <footer class="p-4 bg-white border-t sticky bottom-0">
         <form id="chat-form" class="max-w-4xl mx-auto flex gap-2">
-            <input type="text" id="user-input" autocomplete="off" placeholder="예: 서울 사는 4학년 취준생인데 월세 지원이 궁금해" 
+            <input type="text" id="user-input" autocomplete="off" placeholder="예: 서울 사는 4학년 취준생인데 월세 지원이 궁금해"
                    class="flex-1 bg-slate-100 border-none rounded-xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
             <button type="submit" id="send-btn" class="bg-blue-600 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-blue-700 shadow-md active:scale-95 transition-all">
                 <i class="fa-solid fa-paper-plane"></i>
@@ -49,6 +49,13 @@
         const input = document.getElementById('user-input');
         const chatWindow = document.getElementById('chat-window');
         const sendBtn = document.getElementById('send-btn');
+
+        // 브라우저(개인)별 세션 ID: localStorage에 저장해서 새로고침해도 유지
+        const sessionId = localStorage.getItem('chat_session_id') || (() => {
+            const v = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+            localStorage.setItem('chat_session_id', v);
+            return v;
+        })();
 
         form.onsubmit = async (e) => {
             e.preventDefault();
@@ -64,7 +71,7 @@
                 const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg })
+                    body: JSON.stringify({ session_id: sessionId, message: msg })
                 });
                 const data = await res.json();
                 updateMessage(loadingId, data.answer);
