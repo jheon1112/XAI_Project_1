@@ -11,13 +11,8 @@ from typing import Dict, List
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
 
-# 서버 시작 시 모델 로드 (싱글톤)
 engine = LlamaService()
-
-# 세션별 대화 기록 저장소 (프로토타입: 메모리 저장)
 session_histories: Dict[str, List[dict]] = {}
-
-# 같은 세션에서 연타/동시요청 들어올 때 history 꼬임 방지
 session_locks = defaultdict(asyncio.Lock)
 
 class ChatRequest(BaseModel):
@@ -33,19 +28,19 @@ async def chat(request: ChatRequest):
     async with session_locks[request.session_id]:
         history = session_histories.get(request.session_id)
 
-        # LLM generate는 오래 걸릴 수 있어서 이벤트 루프를 막지 않도록 스레드로 분리
-        answer, new_history = await asyncio.to_thread(
+        # [수정] llama_service.py의 리턴값 3개를 정확히 받습니다.
+        answer, new_history, xai_data = await asyncio.to_thread(
             engine.generate_response,
             request.message,
             history,
         )
 
         session_histories[request.session_id] = new_history
-        return {"answer": answer}
+        # 프론트엔드에 답변과 XAI 데이터를 함께 전달합니다.
+        return {"answer": answer, "xai_data": xai_data}
 
 @app.post("/reset")
 async def reset(request: ChatRequest):
-    """해당 세션의 대화 기록을 초기화(선택 기능)."""
     session_histories.pop(request.session_id, None)
     return {"ok": True}
 
