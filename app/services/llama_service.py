@@ -12,7 +12,7 @@ class LlamaService:
     def __init__(self):
         model_id = os.getenv("MODEL_ID")
         
-        # 1. [양자화 설정] 6GB VRAM인 RTX 4050에서 8B 모델을 돌리기 위해 4비트로 압축합니다.
+        # 1. [VRAM 최적화] 4비트 양자화로 모델 크기를 줄여 6GB GPU에서도 실행 가능하게 합니다.
         self.bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.float16,
@@ -20,10 +20,10 @@ class LlamaService:
             bnb_4bit_use_double_quant=True,
         )
 
-        print(f"🚀 XAI + 정책 DB 통합 엔진 로드: {model_id}")
+        print(f"AI 로드 중: {model_id}")
         
-        # 2. [모델 로드] 어텐션 가중치(XAI 데이터) 추출을 위해 attn_implementation="eager" 설정이 필수입니다.
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        # 2. [XAI 활성화] 어텐션 가중치 추출을 위해 attn_implementation="eager" 설정을 사용합니다.
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             quantization_config=self.bnb_config,
@@ -32,7 +32,7 @@ class LlamaService:
             attn_implementation="eager", 
         )
 
-        # 3. [데이터 이식] 조원분이 정리한 실제 청년 정책 30개 데이터셋입니다.
+        # 3. [데이터베이스] 조원분이 정리한 실제 청년 정책 30개 데이터입니다.
         self.POLICIES = [
             {"name":"청년 어학·자격시험 응시료 지원","region":["관악구","서울"],"age_min":19,"age_max":39,
             "target":["청년","취업준비"],"needs":["자격증","어학","시험","응시료"],
@@ -153,32 +153,37 @@ class LlamaService:
             {"name":"심리상담 지원(청년/일반, 지자체)","region":["서울","전국"],"age_min":19,"age_max":39,
             "target":["청년","스트레스"],"needs":["상담","심리","정신건강"],
             "howto":"지자체 정신건강/청년센터 프로그램 확인 → 예약/신청"},
-            
         ]
 
-        # 4. [논리 이식] "미입력 시 되묻기" 규칙과 "출력 포맷 고정"이 핵심입니다.
+        # 4. [상담 논리] 정보 부족 시 되묻도록 지시하는 시스템 프롬프트입니다.
         self.system_prompt = {
             "role": "system",
             "content": (
-                "너는 '개인 조건 기반 정책혜택 추천' 전문 상담사야. 아래 규칙을 엄수해줘.\n"
-                "1) 반드시 제공된 [참고 정책 목록] 안에서만 추천할 것.\n"
-                "2) 거주지, 나이 등 조건이 부족하면 무리하게 추천하지 말고 '추가 확인 질문'을 할 것.\n"
-                "3) 답변 시 [추출된 사용자 조건]을 먼저 요약하고 정책을 추천할 것.\n"
-                "4) 말투는 따뜻하고 전문적으로 할 것."
+                "너는 따뜻하고 전문적인 청년 정책 상담사야. "
+                "제공된 [참고 정책 목록]의 정보를 활용해서 사용자의 질문에 친절한 '줄글'로 답변해줘. "
+                "정보가 부족하면 무리하게 추천하지 말고 자연스럽게 질문을 던져줘."
             )
         }
 
-    def generate_response(self, user_input: str, history=None, max_new_tokens=400):
+    def generate_response(self, user_input: str, history=None, max_new_tokens=250):
         if not history:
             history = [self.system_prompt]
         
-        # 5. [데이터 주입] 정책 JSON 데이터를 사용자 질문 앞에 끼워 넣어 모델이 읽게 합니다.
-        policies_context = json.dumps(self.POLICIES, ensure_ascii=False)
-        combined_input = f"[참고 정책 목록]\n{policies_context}\n\n[사용자 질문]\n{user_input}"
+        # 1. [필터링] 관련 정책 3~5개만 골라냅니다.
+        relevant_policies = [
+            p for p in self.POLICIES 
+            if any(kw in user_input for kw in p.get("needs", [])) or 
+               any(kw in user_input for kw in p.get("target", []))
+        ]
+        display_policies = relevant_policies[:5] if relevant_policies else self.POLICIES[:3]
+
+        # 2. 입력을 줄글 답변에 최적화된 형태로 구성합니다.
+        policies_json = json.dumps(display_policies, ensure_ascii=False)
+        combined_input = f"참고할 정책 정보: {policies_json}\n\n사용자 질문: {user_input}"
         
         history2 = history + [{"role": "user", "content": combined_input}]
 
-        # 6. [메모리 관리] VRAM 부족을 막기 위해 대화 기록(Context)을 최근 3턴으로 제한합니다.
+        # 최근 3턴 대화만 유지 (메모리 관리)
         if len(history2) > 4:
             history2 = [history2[0]] + history2[-3:]
 
@@ -190,38 +195,91 @@ class LlamaService:
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=max_new_tokens,
-                    output_attentions=True,  # XAI 데이터 추출 활성화
+                    max_new_tokens=max_new_tokens,  # 답변 길이 제한 (OOM 방지)
+                    output_attentions=True,
                     return_dict_in_generate=True,
                     do_sample=True,
-                    temperature=0.7,
-                    top_p=0.9,
+                    temperature=0.6,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
 
-            # 7. [답변 디코딩] 생성된 토큰을 한글 문장으로 변환합니다.
+            # 3. [답변 추출] 입력 이후 새로 생성된 토큰만 잘라서 디코딩
             input_length = inputs["input_ids"].shape[1]
-            response = self.tokenizer.decode(outputs.sequences[0][input_length:], skip_special_tokens=True)
+            generated_ids = outputs.sequences[0][input_length:]
+            response = self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
-            # 8. [XAI 가중치 추출] 답변 생성 시 어떤 입력 단어에 집중했는지 수치화합니다.
-            # 마지막 레이어의 어텐션 평균값을 사용하여 기여도를 계산합니다.
-            first_token_attentions = outputs.attentions[0][-1][0].mean(dim=0)
-            input_weights = first_token_attentions[-1, :input_length]
+            # 혹시 공백만 남는 경우를 대비한 최소 fallback
+            if not response:
+                full_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
+                response = full_text.strip()
 
-            # 9. [XAI 데이터 매핑] 가중치가 높은 상위 5개 단어를 뽑아 뱃지용 데이터로 만듭니다.
-            top_indices = torch.topk(input_weights, min(5, input_length)).indices.tolist()
+            # 4. [XAI 가중치 태그 개선]
+            # 첫 생성 스텝의 마지막 레이어 attention을 이용하되,
+            # 표시용 토큰은 필터링/정리해서 너무 깨진 조각은 제거
             xai_data = []
-            for idx in top_indices:
-                word = self.tokenizer.decode([inputs["input_ids"][0][idx]]).strip()
-                if word and len(word) > 1 and not word.startswith('<'):
-                    xai_data.append({
-                        "word": word, 
-                        "score": round(input_weights[idx].item() * 100, 2)
+
+            try:
+                # outputs.attentions:
+                # 생성 스텝별 -> 레이어별 -> tensor
+                # 첫 생성 스텝의 마지막 레이어 attention 사용
+                step0_last_layer = outputs.attentions[0][-1]   # [batch, heads, q_len, k_len]
+                attn_mean = step0_last_layer[0].mean(dim=0)    # [q_len, k_len]
+
+                # 마지막 query 위치가 input 전체를 얼마나 봤는지
+                input_weights = attn_mean[-1, :input_length]
+
+                # 후보를 조금 넉넉히 뽑고, 후처리 후 상위 5개만 사용
+                top_k = min(20, input_length)
+                top_indices = torch.topk(input_weights, top_k).indices.tolist()
+
+                seen_words = set()
+                cleaned_tags = []
+
+                for idx in top_indices:
+                    token_id = inputs["input_ids"][0][idx].item()
+                    word = self.tokenizer.decode([token_id], skip_special_tokens=True).strip()
+
+                    # 너무 짧거나 의미 없는 토큰 제거
+                    if not word:
+                        continue
+                    if len(word) <= 1:
+                        continue
+                    if word.startswith("<") or word.endswith(">"):
+                        continue
+
+                    # 자주 섞이는 불필요 기호 제거
+                    bad_tokens = {
+                        ",", ".", ":", ";", "!", "?", "\"", "'", "`",
+                        "(", ")", "[", "]", "{", "}", "\\", "/", "|",
+                        "assistant", "user", "system"
+                    }
+                    if word in bad_tokens:
+                        continue
+
+                    # 공백/개행 정리
+                    word = word.replace("\n", " ").strip()
+
+                    # 같은 토큰 중복 제거
+                    if word in seen_words:
+                        continue
+                    seen_words.add(word)
+
+                    cleaned_tags.append({
+                        "word": word,
+                        "score": round(float(input_weights[idx].item()) * 100, 2)
                     })
+
+                    if len(cleaned_tags) >= 5:
+                        break
+
+                xai_data = cleaned_tags
+
+            except Exception:
+                # attention 추출 실패 시 빈 태그 반환
+                xai_data = []
 
             return response, history2 + [{"role": "assistant", "content": response}], xai_data
 
         finally:
-            # 10. [메모리 해제] 추론이 끝나면 GPU 메모리를 즉시 비워 다음 질문에 대비합니다.
             torch.cuda.empty_cache()
             gc.collect()
