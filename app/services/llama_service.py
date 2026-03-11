@@ -32,7 +32,7 @@ class LlamaService:
             attn_implementation="eager", 
         )
 
-        # 3. [데이터베이스] 조원분이 정리한 실제 청년 정책 30개 데이터입니다.
+        # 3. [데이터베이스] 청년 정책 30개 데이터입니다.
         self.POLICIES = [
             {"name":"청년 어학·자격시험 응시료 지원","region":["관악구","서울"],"age_min":19,"age_max":39,
             "target":["청년","취업준비"],"needs":["자격증","어학","시험","응시료"],
