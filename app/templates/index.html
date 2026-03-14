@@ -1,154 +1,1210 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>청년 정책 XAI 상담소</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <style>
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        #chat-window::-webkit-scrollbar { width: 6px; }
-        #chat-window::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        :root {
+            --bg: #eef4ff;
+            --panel: rgba(255, 255, 255, 0.78);
+            --line: rgba(148, 163, 184, 0.22);
+            --line-strong: rgba(148, 163, 184, 0.35);
+
+            --text: #0f172a;
+            --text-soft: #64748b;
+            --text-faint: #94a3b8;
+
+            --primary: #2563eb;
+            --primary-strong: #1d4ed8;
+            --primary-soft-2: #eff6ff;
+
+            --user-bubble: linear-gradient(135deg, #2563eb, #1d4ed8);
+            --bot-bubble: rgba(255, 255, 255, 0.95);
+
+            --success: #10b981;
+
+            --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
+            --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.06);
+
+            --radius-xl: 28px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            font-family: "Pretendard", "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 0% 0%, rgba(191, 219, 254, 0.9), transparent 34%),
+                radial-gradient(circle at 100% 0%, rgba(224, 231, 255, 0.8), transparent 30%),
+                linear-gradient(180deg, #f8fbff 0%, #eef4ff 55%, #eaf1ff 100%);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 22px;
+        }
+
+        .app {
+            width: min(1120px, 100%);
+            height: calc(100vh - 44px);
+            margin: 0 auto;
+            border-radius: var(--radius-xl);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            background: rgba(255, 255, 255, 0.56);
+            backdrop-filter: blur(20px);
+            box-shadow: var(--shadow-lg);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .sidebar {
+            padding: 24px 20px 20px;
+            border-right: 1px solid var(--line);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.74), rgba(248,250,252,0.66)),
+                radial-gradient(circle at top, rgba(219, 234, 254, 0.7), transparent 45%);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand__logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #60a5fa, #2563eb, #1d4ed8);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 14px 32px rgba(37, 99, 235, 0.34);
+            font-size: 20px;
+        }
+
+        .brand__text h1 {
+            margin: 0;
+            font-size: 18px;
+            line-height: 1.2;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .brand__text p {
+            margin: 6px 0 0;
+            font-size: 12px;
+            color: var(--text-soft);
+            line-height: 1.45;
+        }
+
+        .status-card,
+        .guide-card,
+        .example-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .status-card {
+            padding: 16px 16px 14px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .status-title {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #f0fdf4;
+            color: #166534;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .live-pill__dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--success);
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.12);
+        }
+
+        .status-desc {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-soft);
+            line-height: 1.6;
+        }
+
+        .guide-card,
+        .example-card {
+            padding: 16px;
+        }
+
+        .guide-card h2,
+        .example-card h2 {
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .guide-list,
+        .example-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .guide-item,
+        .example-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--text-soft);
+            line-height: 1.55;
+        }
+
+        .guide-icon,
+        .example-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary-soft-2);
+            color: var(--primary);
+            font-size: 11px;
+            margin-top: 1px;
+        }
+
+        .example-card {
+            margin-top: auto;
+        }
+
+        .example-chip-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .example-chip {
+            border: 1px solid rgba(37, 99, 235, 0.15);
+            background: #fff;
+            color: #1e40af;
+            padding: 8px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.16s ease;
+        }
+
+        .example-chip:hover {
+            background: #eff6ff;
+            transform: translateY(-1px);
+        }
+
+        .main {
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            min-width: 0;
+            min-height: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.18));
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.42);
+            backdrop-filter: blur(10px);
+        }
+
+        .topbar__left {
+            min-width: 0;
+        }
+
+        .topbar__title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 6px;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .topbar__title i {
+            color: var(--primary);
+        }
+
+        .topbar__desc {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-soft);
+            line-height: 1.55;
+        }
+
+        .reset-btn {
+            border: 1px solid var(--line-strong);
+            background: rgba(255,255,255,0.88);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.16s ease;
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
+        }
+
+        .reset-btn:hover {
+            background: #fff;
+            border-color: rgba(37, 99, 235, 0.28);
+            color: var(--primary-strong);
+            transform: translateY(-1px);
+        }
+
+        .chat-area {
+            min-height: 0;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 22px 24px 26px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+        }
+
+        .intro-card {
+            max-width: 760px;
+            margin: 0 auto 20px;
+            padding: 18px 18px 16px;
+            background: rgba(255,255,255,0.78);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .intro-card__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: var(--primary-strong);
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .intro-card h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+            line-height: 1.35;
+            letter-spacing: -0.02em;
+        }
+
+        .intro-card p {
+            margin: 0;
+            color: var(--text-soft);
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        .messages {
+            max-width: 820px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            min-height: 100%;
+        }
+
+        .message-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        .message-row--user {
+            justify-content: flex-end;
+        }
+
+        .message-row--bot {
+            justify-content: flex-start;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 16px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .avatar--bot {
+            background: linear-gradient(135deg, #dbeafe, #93c5fd, #60a5fa);
+            color: #0f172a;
+        }
+
+        .avatar--user {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: #fff;
+        }
+
+        .bubble-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: min(72%, 560px);
+        }
+
+        .message-meta {
+            font-size: 11px;
+            color: var(--text-faint);
+            padding: 0 6px;
+        }
+
+        .message-row--user .bubble-wrap {
+            align-items: flex-end;
+        }
+
+        .message-row--bot .bubble-wrap {
+            align-items: flex-start;
+        }
+
+        .bubble {
+            width: fit-content;
+            max-width: 100%;
+            padding: 14px 16px;
+            border-radius: 22px;
+            line-height: 1.68;
+            font-size: 14px;
+            word-break: break-word;
+            white-space: pre-wrap;
+            box-shadow: var(--shadow-md);
+            position: relative;
+        }
+
+        .bubble--bot {
+            background: var(--bot-bubble);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            color: var(--text);
+            border-top-left-radius: 8px;
+        }
+
+        .bubble--user {
+            background: var(--user-bubble);
+            color: #fff;
+            border-top-right-radius: 8px;
+        }
+
+        .bubble.loading {
+            color: var(--text-soft);
+        }
+
+        .typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .typing span {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #94a3b8;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        .typing span:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        .typing span:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+            40% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        .analysis-stack {
+            margin-top: 14px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .xai-box {
+            padding-top: 12px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
+        }
+
+        .xai-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--primary-strong);
+            letter-spacing: -0.01em;
+        }
+
+        .xai-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .xai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #eff6ff, #dbeafe);
+            color: #1d4ed8;
+            border: 1px solid rgba(59, 130, 246, 0.14);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .user-highlight {
+            line-height: 1.9;
+            word-break: keep-all;
+        }
+
+        .user-highlight-word {
+            display: inline;
+            padding: 1px 4px;
+            border-radius: 8px;
+            transition: 0.15s ease;
+        }
+
+        .user-highlight-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.82);
+            line-height: 1.5;
+        }
+
+        .composer {
+            padding: 18px 22px 22px;
+            border-top: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.52);
+            backdrop-filter: blur(10px);
+        }
+
+        .composer__hint {
+            max-width: 820px;
+            margin: 0 auto 10px;
+            font-size: 11px;
+            color: var(--text-soft);
+            line-height: 1.5;
+            padding: 0 4px;
+        }
+
+        .composer-form {
+            max-width: 820px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .input-shell {
+            position: relative;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 22px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .composer-input {
+            width: 100%;
+            min-height: 62px;
+            max-height: 180px;
+            resize: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text);
+            font: inherit;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 18px;
+        }
+
+        .composer-input::placeholder {
+            color: #94a3b8;
+        }
+
+        .send-btn {
+            height: 62px;
+            min-width: 62px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.28);
+            transition: 0.16s ease;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 34px rgba(37, 99, 235, 0.32);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.22s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 960px) {
+            body {
+                padding: 14px;
+            }
+
+            .app {
+                grid-template-columns: 1fr;
+                height: calc(100vh - 28px);
+                min-height: 0;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .topbar,
+            .composer {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .chat-area {
+                padding: 16px 16px 22px;
+            }
+
+            .bubble-wrap {
+                max-width: 84%;
+            }
+
+            .topbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .reset-btn {
+                align-self: flex-end;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 8px;
+            }
+
+            .app {
+                height: calc(100vh - 16px);
+                border-radius: 22px;
+                min-height: 0;
+            }
+
+            .bubble-wrap {
+                max-width: 90%;
+            }
+
+            .bubble {
+                font-size: 13px;
+                padding: 13px 14px;
+            }
+
+            .intro-card h3 {
+                font-size: 16px;
+            }
+
+            .composer-form {
+                grid-template-columns: 1fr auto;
+                gap: 10px;
+            }
+
+            .send-btn {
+                min-width: 56px;
+                height: 56px;
+                border-radius: 18px;
+            }
+
+            .composer-input {
+                min-height: 56px;
+                padding: 16px;
+            }
+        }
     </style>
 </head>
-<body class="bg-slate-50 h-screen flex flex-col font-sans text-slate-900">
-
-    <header class="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
-                <i class="fa-solid fa-comments-dollar text-lg"></i>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand__logo">
+                    <i class="fa-solid fa-comments-dollar"></i>
+                </div>
+                <div class="brand__text">
+                    <h1>청년 정책 XAI 상담소</h1>
+                    <p>로컬 LLaMA + Captum 기반 정책 상담 데모</p>
+                </div>
             </div>
-            <h1 class="text-lg font-bold">청년 정책 XAI 상담소</h1>
-        </div>
-        <button id="reset-btn" class="px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-200 shadow-sm transition-all active:scale-95">
-            <i class="fa-solid fa-rotate-right"></i><span> 새 대화 시작</span>
-        </button>
-    </header>
 
-    <main id="chat-window" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 items-start">
-        <div class="flex justify-start items-start gap-3 w-full">
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">AI</div>
-            <div class="bg-white border p-3 px-4 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] w-fit text-sm text-slate-700 leading-relaxed">
-                안녕하세요! 어떤 정책 지원이나 금융 상품이 궁금하신가요? 상황을 말씀해 주시면 최적의 지원책을 분석해 드릴게요.
-            </div>
-        </div>
-    </main>
+            <section class="status-card">
+                <div class="status-row">
+                    <div class="status-title">상담 상태</div>
+                    <div class="live-pill">
+                        <span class="live-pill__dot"></span>
+                        실행 중
+                    </div>
+                </div>
+                <p class="status-desc">
+                    질문 내용에 맞는 정책 정보를 분석해 답변하고,
+                    입력 질문에서 중요하게 본 단어를 색으로 보여줍니다.
+                </p>
+            </section>
 
-    <footer class="p-4 bg-white border-t sticky bottom-0">
-        <form id="chat-form" class="max-w-4xl mx-auto flex gap-2">
-            <input type="text" id="user-input" autocomplete="off" placeholder="질문을 입력하세요..." 
-                   class="flex-1 bg-slate-100 border-none rounded-xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            <button type="submit" id="send-btn" class="bg-blue-600 text-white px-5 py-3 rounded-xl shadow-md active:scale-95 transition-all">
-                <i class="fa-solid fa-paper-plane"></i>
-            </button>
-        </form>
-    </footer>
+            <section class="guide-card">
+                <h2>질문 팁</h2>
+                <ul class="guide-list">
+                    <li class="guide-item">
+                        <span class="guide-icon"><i class="fa-solid fa-user"></i></span>
+                        <span>나이와 학생·취업준비·재직 여부를 함께 적어보세요.</span>
+                    </li>
+                    <li class="guide-item">
+                        <span class="guide-icon"><i class="fa-solid fa-location-dot"></i></span>
+                        <span>지역 정보를 넣으면 지자체 정책까지 더 정확히 찾을 수 있어요.</span>
+                    </li>
+                    <li class="guide-item">
+                        <span class="guide-icon"><i class="fa-solid fa-wallet"></i></span>
+                        <span>주거, 자격증, 창업, 면접, 월세처럼 상황을 구체적으로 적어주세요.</span>
+                    </li>
+                </ul>
+            </section>
+
+            <section class="example-card">
+                <h2>예시 질문</h2>
+                <ul class="example-list">
+                    <li class="example-item">
+                        <span class="example-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+                        <span>대학생이 받을 수 있는 등록금·자격증 지원이 궁금해요.</span>
+                    </li>
+                    <li class="example-item">
+                        <span class="example-icon"><i class="fa-solid fa-house"></i></span>
+                        <span>서울 사는 20대 청년이 신청할 만한 월세 지원이 있을까요?</span>
+                    </li>
+                    <li class="example-item">
+                        <span class="example-icon"><i class="fa-solid fa-briefcase"></i></span>
+                        <span>취업 준비 중인데 면접정장 대여나 구직 지원금을 알고 싶어요.</span>
+                    </li>
+                </ul>
+                <div class="example-chip-wrap">
+                    <button class="example-chip" type="button">자격증 지원</button>
+                    <button class="example-chip" type="button">월세 지원</button>
+                    <button class="example-chip" type="button">면접 정장 대여</button>
+                    <button class="example-chip" type="button">창업 지원</button>
+                </div>
+            </section>
+        </aside>
+
+        <section class="main">
+            <header class="topbar">
+                <div class="topbar__left">
+                    <div class="topbar__title">
+                        <i class="fa-solid fa-sparkles"></i>
+                        <span>정책 상담 채팅</span>
+                    </div>
+                    <p class="topbar__desc">
+                        질문을 입력하면 정책 답변과 함께, 입력 문장에서 중요하게 작용한 토큰을 색으로 확인할 수 있습니다.
+                    </p>
+                </div>
+                <button id="reset-btn" class="reset-btn" type="button">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    새 대화 시작
+                </button>
+            </header>
+
+            <main id="chat-window" class="chat-area">
+                <div class="intro-card fade-in">
+                    <div class="intro-card__badge">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>상담 안내</span>
+                    </div>
+                    <h3>안녕하세요. 어떤 정책 지원이 필요한지 편하게 물어보세요.</h3>
+                    <p>
+                        예를 들어 나이, 지역, 현재 상황을 함께 적어주시면 더 적절한 정책을 추천할 수 있어요.
+                        예: “서울 거주 24세 대학생인데 자격증 응시료 지원이 궁금해요.”
+                    </p>
+                </div>
+
+                <div id="messages" class="messages">
+                    <div class="message-row message-row--bot fade-in">
+                        <div class="avatar avatar--bot">AI</div>
+                        <div class="bubble-wrap">
+                            <div class="message-meta">정책 상담 AI</div>
+                            <div class="bubble bubble--bot">안녕하세요! 자격증, 월세, 취업, 창업, 면접 준비처럼 궁금한 정책을 말씀해 주세요.
+상황을 조금 더 자세히 적어주시면 더 적합한 지원 제도를 정리해드릴게요.</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <footer class="composer">
+                <div class="composer__hint">
+                    민감한 개인정보는 입력하지 말고, 필요한 상황 정보만 간단히 적어주세요.
+                </div>
+                <form id="chat-form" class="composer-form">
+                    <div class="input-shell">
+                        <textarea
+                            id="user-input"
+                            class="composer-input"
+                            rows="1"
+                            placeholder="예: 서울 거주 25세 취업준비생인데 면접정장 대여나 구직지원금이 궁금해요."
+                        ></textarea>
+                    </div>
+                    <button id="send-btn" class="send-btn" type="submit" aria-label="보내기">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </section>
+    </div>
 
     <script>
         const form = document.getElementById('chat-form');
         const input = document.getElementById('user-input');
         const chatWindow = document.getElementById('chat-window');
+        const messages = document.getElementById('messages');
         const sendBtn = document.getElementById('send-btn');
         const resetBtn = document.getElementById('reset-btn');
+        const exampleChips = document.querySelectorAll('.example-chip');
 
         const sessionId = localStorage.getItem('chat_session_id') || (() => {
-            const v = crypto.randomUUID();
-            localStorage.setItem('chat_session_id', v);
-            return v;
+            const id = crypto.randomUUID();
+            localStorage.setItem('chat_session_id', id);
+            return id;
         })();
 
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            const msg = input.value.trim();
-            if (!msg) return;
+        function autoResizeTextarea() {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+        }
 
-            appendMessage('user', msg);
-            input.value = '';
-            sendBtn.disabled = true;
-            const loadingId = appendMessage('bot', 'AI가 분석 중입니다...');
+        input.addEventListener('input', autoResizeTextarea);
 
-            try {
-                const res = await fetch('/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId, message: msg })
-                });
-                const data = await res.json();
-                updateMessage(loadingId, data.answer, data.xai_data);
-            } catch (err) {
-                updateMessage(loadingId, '서버 응답 오류가 발생했습니다.');
-            } finally {
-                sendBtn.disabled = false;
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                form.requestSubmit();
             }
-        };
+        });
 
-        resetBtn.onclick = () => { if(confirm("초기화할까요?")) location.reload(); };
+        exampleChips.forEach((chip) => {
+            chip.addEventListener('click', () => {
+                input.value = chip.textContent + ' 관련 정책 알려줘';
+                autoResizeTextarea();
+                input.focus();
+            });
+        });
 
-        // [정석 DOM 생성 방식] 말풍선 크기 버그 해결
-        function appendMessage(sender, text) {
-            const id = Date.now();
+        function getTimeLabel() {
+            const now = new Date();
+            return now.toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function scrollToBottom() {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function createTypingIndicator() {
+            const wrap = document.createElement('div');
+            wrap.className = 'typing';
+            wrap.innerHTML = '<span></span><span></span><span></span>';
+            return wrap;
+        }
+
+        function appendMessage(sender, text, isLoading = false) {
+            const id = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
             const isUser = sender === 'user';
 
             const row = document.createElement('div');
+            row.className = `message-row ${isUser ? 'message-row--user' : 'message-row--bot'} fade-in`;
             row.id = id;
-            // items-start가 위아래로 길어지는 버그를 차단합니다
-            row.className = `flex ${isUser ? 'justify-end' : 'justify-start'} items-start gap-3 w-full fade-in`;
 
-            if (!isUser) {
-                const aiIcon = document.createElement('div');
-                aiIcon.className = "w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0 shadow-sm";
-                aiIcon.textContent = "AI";
-                row.appendChild(aiIcon);
-            }
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${isUser ? 'avatar--user' : 'avatar--bot'}`;
+            avatar.textContent = isUser ? 'ME' : 'AI';
+
+            const wrap = document.createElement('div');
+            wrap.className = 'bubble-wrap';
+
+            const meta = document.createElement('div');
+            meta.className = 'message-meta';
+            meta.textContent = isUser ? `나 · ${getTimeLabel()}` : `정책 상담 AI · ${getTimeLabel()}`;
 
             const bubble = document.createElement('div');
-            // w-fit: 글자 수에 딱 맞춰 말풍선을 줄입니다
-            bubble.className = `${isUser ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border text-slate-700 rounded-tl-none'} p-3 px-4 rounded-2xl max-w-[75%] w-fit text-sm leading-relaxed whitespace-pre-wrap shadow-md`;
-            bubble.textContent = text; 
-            row.appendChild(bubble);
+            bubble.className = `bubble ${isUser ? 'bubble--user' : 'bubble--bot'}${isLoading ? ' loading' : ''}`;
 
-            if (isUser) {
-                const meIcon = document.createElement('div');
-                meIcon.className = "w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0 shadow-sm";
-                meIcon.textContent = "ME";
-                row.appendChild(meIcon);
+            if (isLoading) {
+                bubble.appendChild(createTypingIndicator());
+            } else {
+                bubble.textContent = text;
             }
 
-            chatWindow.appendChild(row);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
+            wrap.appendChild(meta);
+            wrap.appendChild(bubble);
+
+            if (isUser) {
+                row.appendChild(wrap);
+                row.appendChild(avatar);
+            } else {
+                row.appendChild(avatar);
+                row.appendChild(wrap);
+            }
+
+            messages.appendChild(row);
+            scrollToBottom();
             return id;
+        }
+
+        function buildXaiBox(xaiData) {
+            if (!xaiData || !Array.isArray(xaiData) || xaiData.length === 0) return null;
+
+            const box = document.createElement('div');
+            box.className = 'xai-box';
+
+            const title = document.createElement('div');
+            title.className = 'xai-title';
+            title.innerHTML = '<i class="fa-solid fa-chart-line"></i><span>중요 단어 분석</span>';
+
+            const badgeWrap = document.createElement('div');
+            badgeWrap.className = 'xai-badges';
+
+            xaiData.forEach((item) => {
+                if (!item || !item.word) return;
+                const badge = document.createElement('span');
+                badge.className = 'xai-badge';
+                badge.textContent = `#${item.word} ${item.score}%`;
+                badgeWrap.appendChild(badge);
+            });
+
+            box.appendChild(title);
+            box.appendChild(badgeWrap);
+            return box;
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getWordHighlightColor(score, rank) {
+            // score: 0 ~ 1
+            // rank: 중요도 순위
+            if (rank === 0) return 'rgba(255,255,255,0.42)';
+            if (rank <= 2) return 'rgba(255,255,255,0.30)';
+            if (score >= 0.35) return 'rgba(255,255,255,0.20)';
+            return 'transparent';
+        }
+
+        function buildUserHighlightedHtml(originalMessage, captumResult) {
+            if (!captumResult || !Array.isArray(captumResult.word_scores)) {
+                return `<div>${escapeHtml(originalMessage)}</div>`;
+            }
+
+            const words = [...captumResult.word_scores]
+                .filter(w => w && typeof w.start === 'number' && typeof w.end === 'number')
+                .sort((a, b) => a.start - b.start);
+
+            if (words.length === 0) {
+                return `<div>${escapeHtml(originalMessage)}</div>`;
+            }
+
+            // 중요도 순위 계산
+            const ranked = [...words]
+                .map((w, idx) => ({ ...w, originalIndex: idx }))
+                .sort((a, b) => b.score - a.score);
+
+            const rankMap = new Map();
+            ranked.forEach((w, i) => {
+                rankMap.set(`${w.start}-${w.end}`, i);
+            });
+
+            let html = `<div class="user-highlight">`;
+            let cursor = 0;
+
+            for (const w of words) {
+                const plainText = originalMessage.slice(cursor, w.start);
+                if (plainText) {
+                    html += escapeHtml(plainText);
+                }
+
+                const key = `${w.start}-${w.end}`;
+                const rank = rankMap.get(key) ?? 999;
+                const bg = getWordHighlightColor(w.score, rank);
+
+                const wordText = originalMessage.slice(w.start, w.end);
+
+                if (bg === 'transparent') {
+                    html += escapeHtml(wordText);
+                } else {
+                    html += `<span class="user-highlight-word" style="background:${bg}" title="score=${w.score.toFixed(4)}">${escapeHtml(wordText)}</span>`;
+                }
+
+                cursor = w.end;
+            }
+
+            if (cursor < originalMessage.length) {
+                html += escapeHtml(originalMessage.slice(cursor));
+            }
+
+            html += `</div>`;
+            html += `<div class="user-highlight-note">Captum 기준으로 입력 질문에서 상대적으로 중요한 단어를 색으로 표시했습니다.</div>`;
+
+            return html;
+        }
+
+        function updateUserMessageWithCaptum(id, originalMessage, captumResult) {
+            const row = document.getElementById(id);
+            if (!row) return;
+
+            const bubble = row.querySelector('.bubble');
+            if (!bubble) return;
+
+            bubble.innerHTML = buildUserHighlightedHtml(originalMessage, captumResult);
+            scrollToBottom();
         }
 
         function updateMessage(id, text, xaiData = null) {
             const row = document.getElementById(id);
-            const bubble = row.querySelector('.w-fit');
-            bubble.textContent = text;
+            if (!row) return;
 
-            if (xaiData && xaiData.length > 0) {
-                const xaiContainer = document.createElement('div');
-                xaiContainer.className = "mt-4 pt-3 border-t border-slate-100";
-                
-                const title = document.createElement('p');
-                title.className = "text-[10px] font-bold text-blue-500 mb-2 italic";
-                title.innerHTML = '<i class="fa-solid fa-chart-line"></i> AI 기여도 분석';
-                xaiContainer.appendChild(title);
+            const bubble = row.querySelector('.bubble');
+            if (!bubble) return;
 
-                const badgeBox = document.createElement('div');
-                badgeBox.className = "flex flex-wrap gap-1.5";
-                
-                xaiData.forEach(item => {
-                    const badge = document.createElement('span');
-                    badge.className = "bg-blue-50 text-blue-600 px-2 py-1 rounded-lg border border-blue-100 text-[9px] font-semibold";
-                    badge.textContent = `#${item.word} ${item.score}%`;
-                    badgeBox.appendChild(badge);
-                });
+            bubble.classList.remove('loading');
+            bubble.innerHTML = '';
 
-                xaiContainer.appendChild(badgeBox);
-                bubble.appendChild(xaiContainer);
+            const textNode = document.createElement('div');
+            textNode.textContent = text;
+            bubble.appendChild(textNode);
+
+            const stack = document.createElement('div');
+            stack.className = 'analysis-stack';
+
+            const xaiBox = buildXaiBox(xaiData);
+            if (xaiBox) stack.appendChild(xaiBox);
+
+            if (stack.children.length > 0) {
+                bubble.appendChild(stack);
+            }
+
+            scrollToBottom();
+        }
+
+        async function callChatAPI(message) {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data?.detail || '채팅 응답 오류');
+            }
+            return data;
+        }
+
+        async function callCaptumAPI(message) {
+            const response = await fetch('/captum', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data?.detail || 'Captum 응답 오류');
+            }
+            return data;
+        }
+
+        async function sendMessage(message, userMessageId) {
+            const loadingId = appendMessage('bot', '', true);
+
+            try {
+                const [chatResult, captumResult] = await Promise.allSettled([
+                    callChatAPI(message),
+                    callCaptumAPI(message)
+                ]);
+
+                if (chatResult.status !== 'fulfilled') {
+                    throw chatResult.reason;
+                }
+
+                const chatData = chatResult.value;
+                const captumData = captumResult.status === 'fulfilled' ? captumResult.value : null;
+
+                if (captumData) {
+                    updateUserMessageWithCaptum(userMessageId, message, captumData);
+                }
+
+                updateMessage(
+                    loadingId,
+                    chatData.answer || '응답을 생성하지 못했습니다.',
+                    chatData.xai_data || []
+                );
+
+                if (captumResult.status === 'rejected') {
+                    console.warn('Captum 분석 실패:', captumResult.reason);
+                }
+            } catch (error) {
+                updateMessage(
+                    loadingId,
+                    '서버 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+                );
+                console.error(error);
+            } finally {
+                sendBtn.disabled = false;
+                input.disabled = false;
+                input.focus();
+                autoResizeTextarea();
             }
         }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = input.value.trim();
+            if (!message) return;
+
+            const userMessageId = appendMessage('user', message);
+            input.value = '';
+            autoResizeTextarea();
+
+            sendBtn.disabled = true;
+            input.disabled = true;
+
+            await sendMessage(message, userMessageId);
+        });
+
+        resetBtn.addEventListener('click', async () => {
+            const ok = confirm('새 대화를 시작할까요?');
+            if (!ok) return;
+
+            try {
+                await fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: ''
+                    })
+                });
+            } catch (error) {
+                console.error(error);
+            }
+
+            localStorage.removeItem('chat_session_id');
+            location.reload();
+        });
+
+        autoResizeTextarea();
     </script>
 </body>
 </html>

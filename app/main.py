@@ -44,5 +44,18 @@ async def reset(request: ChatRequest):
     session_histories.pop(request.session_id, None)
     return {"ok": True}
 
+@app.post("/captum")
+async def captum(request: ChatRequest):
+    async with session_locks[request.session_id]:
+        history = session_histories.get(request.session_id)
+        result = await asyncio.to_thread(
+            engine.analyze_with_captum,
+            request.message,
+            history,
+        )
+        return result
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=9000)
+
+
