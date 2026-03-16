@@ -1141,6 +1141,13 @@
                 const captumData = captumResult.status === 'fulfilled' ? captumResult.value : null;
 
                 if (captumData) {
+                    console.log('=== Captum 단어별 기여도 ===');
+                    (captumData.word_scores || []).forEach((item, idx) => {
+                        console.log(
+                            `${idx + 1}. ${item.word} | score=${item.score} | span=(${item.start}, ${item.end})`
+                        );
+                    });
+
                     updateUserMessageWithCaptum(userMessageId, message, captumData);
                 }
 
