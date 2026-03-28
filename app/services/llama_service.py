@@ -1,12 +1,16 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import os
-import json
 import gc
-from captum.attr import LayerIntegratedGradients
+import json
+import pickle
 from pathlib import Path
+from typing import Dict, List, Optional
+
+import faiss
+import torch
+from captum.attr import LayerIntegratedGradients
 from dotenv import load_dotenv
-from typing import Dict, List, Optional, Tuple
+from sentence_transformers import SentenceTransformer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 load_dotenv()
 
@@ -20,6 +24,8 @@ class LlamaService:
 
         self.model_id = os.environ["MODEL_ID"]
         self.local_model_path = Path(os.environ["LOCAL_MODEL_PATH"]).resolve()
+        self.project_root = Path(__file__).resolve().parents[2]
+        self.data_dir = self.project_root / "data"
 
         print(f"[INFO] Hugging Face 모델 ID: {self.model_id}")
         print(f"[INFO] 로컬 모델 경로: {self.local_model_path}")
@@ -37,7 +43,7 @@ class LlamaService:
         self.tokenizer = AutoTokenizer.from_pretrained(
             str(self.local_model_path),
             local_files_only=True,
-            use_fast=True
+            use_fast=True,
         )
 
         print(f"[INFO] 로컬 경로에서 모델 로드: {self.local_model_path}")
@@ -47,7 +53,7 @@ class LlamaService:
             device_map={"": 0},
             dtype=torch.float16,
             attn_implementation="eager",
-            local_files_only=True
+            local_files_only=True,
         )
 
         self.model.eval()
@@ -56,137 +62,26 @@ class LlamaService:
             self.model.get_input_embeddings()
         )
 
-        self.POLICIES = [
-            {"name":"청년 어학·자격시험 응시료 지원","region":["관악구","서울"],"age_min":19,"age_max":39,
-            "target":["청년","취업준비"],"needs":["자격증","어학","시험","응시료"],
-            "howto":"지자체 청년정책/구청 공고 확인 → 신청서+응시확인서+영수증 제출"},
-
-            {"name":"국민내일배움카드","region":["전국"],"age_min":15,"age_max":99,
-            "target":["구직자","재직자","청년"],"needs":["훈련","교육","자격증"],
-            "howto":"HRD-Net에서 카드 발급 → 훈련과정 검색/수강신청"},
-
-            {"name":"국민취업지원제도(유형별)","region":["전국"],"age_min":15,"age_max":69,
-            "target":["구직자","취업준비"],"needs":["취업","상담","훈련","지원금"],
-            "howto":"고용센터/고용24에서 자격 확인 → 신청 → 상담/계획 수립"},
-
-            {"name":"청년도전지원사업","region":["전국"],"age_min":18,"age_max":34,
-            "target":["취업준비"],"needs":["취업","상담","프로그램"],
-            "howto":"고용센터/지자체 모집 확인 → 참여 신청 → 프로그램 참여"},
-
-            {"name":"청년 면접정장 대여(지자체)","region":["서울","관악구","전국"],"age_min":18,"age_max":39,
-            "target":["청년","취업준비"],"needs":["면접","정장","대여"],
-            "howto":"지자체 청년정책 페이지에서 예약/신청 → 대여/반납"},
-
-            {"name":"청년 주거급여 분리지급(조건부)","region":["전국"],"age_min":19,"age_max":34,
-            "target":["청년","저소득"],"needs":["주거","월세","급여"],
-            "howto":"복지로에서 신청 → 가구/소득/주거 서류 제출"},
-
-            {"name":"청년월세지원(정부/지자체)","region":["전국"],"age_min":19,"age_max":34,
-            "target":["청년","무주택"],"needs":["월세","주거"],
-            "howto":"복지로/지자체 공고 확인 → 요건 충족 시 신청"},
-
-            {"name":"전세자금(청년) 보증/대출 안내","region":["전국"],"age_min":19,"age_max":34,
-            "target":["청년","무주택"],"needs":["전세","대출","보증"],
-            "howto":"은행/보증기관 요건 확인 → 서류 준비 → 신청"},
-
-            {"name":"청년창업 지원(창업교육/멘토링)","region":["전국"],"age_min":18,"age_max":39,
-            "target":["청년","예비창업"],"needs":["창업","교육","멘토링"],
-            "howto":"창업지원 포털/지자체 모집 확인 → 신청 → 교육/멘토링 참여"},
-
-            {"name":"청년창업 사업화 자금(경쟁형)","region":["전국"],"age_min":18,"age_max":39,
-            "target":["청년","창업"],"needs":["창업","사업화","자금"],
-            "howto":"창업사업 공고 확인 → 사업계획서 제출 → 평가/선정"},
-
-            {"name":"소상공인 정책자금(창업/운영)","region":["전국"],"age_min":18,"age_max":99,
-            "target":["소상공인","예비창업"],"needs":["자금","대출","운영"],
-            "howto":"소상공인 지원기관 상담 → 자금 종류 선택 → 신청"},
-
-            {"name":"청년 교통비 지원(지자체)","region":["서울","전국"],"age_min":19,"age_max":34,
-            "target":["청년"],"needs":["교통","지원금","대중교통"],
-            "howto":"지자체 교통/청년정책 페이지 확인 → 대상이면 신청"},
-
-            {"name":"문화누리카드(문화비 지원)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["저소득"],"needs":["문화","여가","도서","공연"],
-            "howto":"주민센터/온라인에서 발급 → 가맹점 사용"},
-
-            {"name":"에너지바우처","region":["전국"],"age_min":0,"age_max":99,
-            "target":["저소득","취약계층"],"needs":["난방","전기","가스","요금"],
-            "howto":"주민센터/복지로 신청 → 바우처 사용"},
-
-            {"name":"긴급복지 생계지원(조건부)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["위기","저소득"],"needs":["생계","긴급","지원"],
-            "howto":"주민센터/보건복지 상담 → 위기 사유/서류 제출"},
-
-            {"name":"한부모가족 지원(양육/교육)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["한부모"],"needs":["양육","교육","지원금"],
-            "howto":"주민센터/복지로 신청 → 소득/가구서류 제출"},
-
-            {"name":"첫만남이용권(출생 지원)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["출산가정"],"needs":["출산","육아","바우처"],
-            "howto":"복지로/주민센터 신청 → 바우처 지급"},
-
-            {"name":"아동수당","region":["전국"],"age_min":0,"age_max":7,
-            "target":["아동가정"],"needs":["육아","수당"],
-            "howto":"복지로/주민센터 신청 → 계좌 등록"},
-
-            {"name":"기초연금","region":["전국"],"age_min":65,"age_max":99,
-            "target":["고령"],"needs":["연금","소득보전"],
-            "howto":"국민연금공단/주민센터 신청 → 소득/재산 확인"},
-
-            {"name":"장애인 활동지원(조건부)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["장애"],"needs":["돌봄","활동지원"],
-            "howto":"주민센터/복지기관 상담 → 서비스 신청/판정"},
-
-            {"name":"장애인 보장구 급여(조건부)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["장애"],"needs":["보장구","의료","지원"],
-            "howto":"건보/의료기관 절차 확인 → 처방/서류 제출"},
-
-            {"name":"국가장학금(대학생)","region":["전국"],"age_min":18,"age_max":99,
-            "target":["대학생"],"needs":["등록금","장학금"],
-            "howto":"한국장학재단 신청 → 소득구간 산정 → 심사"},
-
-            {"name":"근로장려금(EITC)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["근로","저소득"],"needs":["세금","장려금"],
-            "howto":"국세청 홈택스 정기신청 기간 확인 → 신청"},
-
-            {"name":"자녀장려금(CTC)","region":["전국"],"age_min":0,"age_max":99,
-            "target":["자녀가구","저소득"],"needs":["세금","장려금","자녀"],
-            "howto":"국세청 홈택스 신청 기간 확인 → 신청"},
-
-            {"name":"실업급여(고용보험)","region":["전국"],"age_min":18,"age_max":99,
-            "target":["실직","구직"],"needs":["실업","급여","구직활동"],
-            "howto":"고용센터 방문/온라인 신청 → 수급자격 인정 → 구직활동 보고"},
-
-            {"name":"청년(중소기업) 취업지원금/장려금(조건부)","region":["전국"],"age_min":15,"age_max":34,
-            "target":["청년","중소기업취업"],"needs":["취업","장려금","근속"],
-            "howto":"고용 관련 사업 공고 확인 → 참여기업/요건 확인 → 신청"},
-
-            {"name":"구직활동지원금(지자체/사업별)","region":["서울","전국"],"age_min":18,"age_max":39,
-            "target":["취업준비"],"needs":["구직","지원금","활동"],
-            "howto":"지자체 청년정책/고용사업 모집 확인 → 요건 충족 시 신청"},
-
-            {"name":"청년 금융교육/채무조정 상담(조건부)","region":["전국"],"age_min":19,"age_max":39,
-            "target":["청년"],"needs":["금융","부채","상담"],
-            "howto":"서민금융/상담기관 예약 → 상담/프로그램 참여"},
-
-            {"name":"지역 일자리센터 취업알선/상담","region":["전국"],"age_min":15,"age_max":99,
-            "target":["구직자"],"needs":["취업","상담","알선"],
-            "howto":"지역 일자리센터 방문/예약 → 이력서/상담 → 알선"},
-
-            {"name":"심리상담 지원(청년/일반, 지자체)","region":["서울","전국"],"age_min":19,"age_max":39,
-            "target":["청년","스트레스"],"needs":["상담","심리","정신건강"],
-            "howto":"지자체 정신건강/청년센터 프로그램 확인 → 예약/신청"},
-        ]
+        # RAG resources
+        self.embed_model_name = "jhgan/ko-sroberta-multitask"
+        self.embed_model: Optional[SentenceTransformer] = None
+        self.rag_index = None
+        self.rag_metadata: List[dict] = []
+        self.rag_chunks: List[dict] = []
+        self.raw_data_by_id: Dict[str, dict] = {}
+        self.load_rag_resources()
 
         self.system_prompt = {
             "role": "system",
             "content": (
                 "너는 따뜻하고 전문적인 청년 정책 상담사야. "
-                "제공된 [참고 정책 목록]의 정보를 기반으로 사용자의 질문에 친절한 '줄글'로 답변해줘. "
-                "정보가 부족하면 무리하게 추천하지 말고 더 필요한 정보에 대한 질문을 던져줘."
-                "한글로 쓸 수 있는 단어는 최대한 한글로 써줘."
-                "전문가적인 일목요연한 답변으로 써줘."
-            )
+                "반드시 제공된 [검색된 정책 정보]만을 근거로 답변해줘. "
+                "근거가 부족하면 추측하지 말고, 어떤 정보가 더 필요한지 답변해 줘. "
+                "답변은 한국어로, 전문가적이지만 이해하기 쉽게 줄글로 작성해줘. "
+                "가능하면 신청 가능 여부, 대상, 지원 내용, 참고 링크를 함께 정리해줘."
+                "질문을 반복해서 답변에 기재하지 말고 전문가처럼 깔끔하게 답변해줘."
+                "불필요한 답변 반복은 하지 말아줘."
+            ),
         }
 
     def ensure_local_model(self):
@@ -199,14 +94,14 @@ class LlamaService:
         required_files = [
             "config.json",
             "tokenizer_config.json",
-            "tokenizer.json"
+            "tokenizer.json",
         ]
 
         weight_exists = (
-            (self.local_model_path / "model.safetensors").exists() or
-            (self.local_model_path / "model.safetensors.index.json").exists() or
-            (self.local_model_path / "pytorch_model.bin").exists() or
-            (self.local_model_path / "pytorch_model.bin.index.json").exists()
+            (self.local_model_path / "model.safetensors").exists()
+            or (self.local_model_path / "model.safetensors.index.json").exists()
+            or (self.local_model_path / "pytorch_model.bin").exists()
+            or (self.local_model_path / "pytorch_model.bin.index.json").exists()
         )
 
         is_ready = all((self.local_model_path / f).exists() for f in required_files) and weight_exists
@@ -229,6 +124,182 @@ class LlamaService:
             torch.cuda.empty_cache()
 
         print(f"[INFO] 다운로드 완료: {self.local_model_path}")
+
+    def load_rag_resources(self):
+        """
+        FAISS 인덱스, 메타데이터, chunk 텍스트, 원본 정책 데이터를 로드한다.
+        """
+        index_path = self.data_dir / "vector_store" / "faiss.index"
+        metadata_path = self.data_dir / "vector_store" / "metadata.pkl"
+        chunks_path = self.data_dir / "chunks.jsonl"
+        raw_data_path = self.data_dir / "raw_data.json"
+
+        missing = [
+            str(p.name)
+            for p in [index_path, metadata_path, chunks_path, raw_data_path]
+            if not p.exists()
+        ]
+        if missing:
+            raise FileNotFoundError(f"RAG 파일이 없습니다: {', '.join(missing)}")
+
+        print("[INFO] RAG resources loading...")
+        self.rag_index = faiss.read_index(str(index_path))
+
+        with open(metadata_path, "rb") as f:
+            self.rag_metadata = pickle.load(f)
+
+        with open(chunks_path, "r", encoding="utf-8") as f:
+            self.rag_chunks = [json.loads(line) for line in f if line.strip()]
+
+        with open(raw_data_path, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+
+        self.raw_data_by_id = {
+            item.get("servId", ""): item
+            for item in raw_data
+            if item.get("servId")
+        }
+
+        self.embed_model = SentenceTransformer(self.embed_model_name)
+
+        print(f"[INFO] RAG index loaded")
+        print(f"[INFO] Embedding model: {self.embed_model_name}")
+        print(f"[INFO] Metadata count: {len(self.rag_metadata)}")
+        print(f"[INFO] Chunk count: {len(self.rag_chunks)}")
+        print(f"[INFO] Raw policy count: {len(self.raw_data_by_id)}")
+
+    def retrieve_relevant_chunks(self, query: str, top_k: int = 5) -> List[dict]:
+        """
+        질문을 임베딩하여 FAISS에서 유사한 chunk를 검색한다.
+        """
+        if self.rag_index is None or self.embed_model is None:
+            return []
+
+        query_vec = self.embed_model.encode(
+            [query],
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        ).astype("float32")
+
+        distances, indices = self.rag_index.search(query_vec, top_k)
+
+        results: List[dict] = []
+        for rank, idx in enumerate(indices[0]):
+            if idx < 0:
+                continue
+
+            meta = self.rag_metadata[idx] if idx < len(self.rag_metadata) else {}
+            chunk = self.rag_chunks[idx] if idx < len(self.rag_chunks) else {}
+
+            doc_id = (
+                meta.get("doc_id")
+                or chunk.get("doc_id")
+                or ""
+            )
+            raw_doc = self.raw_data_by_id.get(doc_id, {})
+
+            results.append({
+                "rank": rank + 1,
+                "score": float(distances[0][rank]),
+                "chunk_id": meta.get("chunk_id") or chunk.get("chunk_id", ""),
+                "doc_id": doc_id,
+                "title": (
+                    meta.get("title")
+                    or chunk.get("title")
+                    or raw_doc.get("servNm", "")
+                ),
+                "chunk_text": (
+                    chunk.get("chunk_text")
+                    or chunk.get("text")
+                    or chunk.get("content")
+                    or meta.get("chunk_text", "")
+                ),
+                "ministry": (
+                    chunk.get("ministry")
+                    or raw_doc.get("jurMnofNm", "")
+                ),
+                "theme": (
+                    chunk.get("theme")
+                    or raw_doc.get("intrsThemaArray", "")
+                ),
+                "target_type": (
+                    chunk.get("target_type")
+                    or raw_doc.get("trgterIndvdlArray", "")
+                ),
+                "online_apply": (
+                    chunk.get("online_apply")
+                    or raw_doc.get("onapPsbltYn", "")
+                ),
+                "summary": raw_doc.get("servDgst", ""),
+                "link": (
+                    chunk.get("source_url")
+                    or raw_doc.get("servDtlLink", "")
+                ),
+            })
+
+        return results
+
+    def format_retrieved_context(self, retrieved_chunks: List[dict]) -> str:
+        """
+        검색된 chunk를 프롬프트에 넣기 좋은 텍스트로 변환한다.
+        """
+        if not retrieved_chunks:
+            return "관련 정책 정보를 찾지 못했습니다."
+
+        lines: List[str] = []
+        for item in retrieved_chunks:
+            lines.append(
+                f"[정책명] {item.get('title', '')}\n"
+                f"[소관부처] {item.get('ministry', '')}\n"
+                f"[지원대상] {item.get('target_type', '')}\n"
+                f"[관심주제] {item.get('theme', '')}\n"
+                f"[온라인신청가능] {item.get('online_apply', '')}\n"
+                f"[요약] {item.get('summary', '')}\n"
+                f"[검색문맥] {item.get('chunk_text', '')}\n"
+                f"[링크] {item.get('link', '')}"
+            )
+        return "\n\n".join(lines)
+
+    def build_xai_tags_from_retrieval(self, query: str, retrieved_chunks: List[dict]) -> List[dict]:
+        """
+        임시 중요 단어 배지용. 질의와 검색된 문맥에 공통으로 등장하는 키워드를 간단히 추출한다.
+        기존 attention 태그보다 안정적이다.
+        """
+        import re
+
+        query_words = re.findall(r"[가-힣A-Za-z0-9]{2,}", query)
+        if not query_words:
+            return []
+
+        joined_context = " ".join(
+            f"{item.get('title', '')} {item.get('chunk_text', '')} {item.get('summary', '')}"
+            for item in retrieved_chunks
+        )
+
+        scores = []
+        seen = set()
+        for word in query_words:
+            if word in seen:
+                continue
+            seen.add(word)
+            count = joined_context.count(word)
+            if count > 0:
+                scores.append({"word": word, "score": float(count)})
+
+        scores.sort(key=lambda x: x["score"], reverse=True)
+        top = scores[:5]
+
+        if not top:
+            return []
+
+        max_score = max(item["score"] for item in top) or 1.0
+        return [
+            {
+                "word": item["word"],
+                "score": round(item["score"] / max_score * 100, 2)
+            }
+            for item in top
+        ]
 
     def captum_forward_func(self, input_ids, attention_mask):
         outputs = self.model(
@@ -254,7 +325,7 @@ class LlamaService:
 
             input_ids = enc["input_ids"].to("cuda")
             attention_mask = enc["attention_mask"].to("cuda")
-            offset_mapping = enc["offset_mapping"][0].tolist()   # [(start, end), ...]
+            offset_mapping = enc["offset_mapping"][0].tolist()
 
             with torch.no_grad():
                 logits = self.captum_forward_func(input_ids, attention_mask)
@@ -278,11 +349,9 @@ class LlamaService:
                 internal_batch_size=1
             )
 
-            # [seq_len]
             token_attributions = attributions.sum(dim=-1).squeeze(0)
             token_attributions = token_attributions.detach().float().cpu().tolist()
 
-            # 절댓값 기준으로 단어 중요도 합산
             import re
             word_matches = list(re.finditer(r"\S+", user_input))
             word_scores = []
@@ -293,11 +362,8 @@ class LlamaService:
                 score_sum = 0.0
 
                 for (t_start, t_end), t_score in zip(offset_mapping, token_attributions):
-                    # special token / 빈 토큰 제외
                     if t_start == t_end:
                         continue
-
-                    # 토큰과 단어 span이 겹치면 점수 합산
                     overlap = not (t_end <= w_start or t_start >= w_end)
                     if overlap:
                         score_sum += abs(float(t_score))
@@ -309,7 +375,6 @@ class LlamaService:
                     "score": round(score_sum, 6)
                 })
 
-            # 정규화
             max_score = max((w["score"] for w in word_scores), default=0.0)
             if max_score > 0:
                 for w in word_scores:
@@ -337,15 +402,24 @@ class LlamaService:
         if not history:
             history = [self.system_prompt]
 
-        relevant_policies = [
-            p for p in self.POLICIES
-            if any(kw in user_input for kw in p.get("needs", [])) or
-               any(kw in user_input for kw in p.get("target", []))
-        ]
-        display_policies = relevant_policies[:5] if relevant_policies else self.POLICIES[:3]
+        retrieved_chunks = self.retrieve_relevant_chunks(user_input, top_k=5)
+        context_text = self.format_retrieved_context(retrieved_chunks)
 
-        policies_json = json.dumps(display_policies, ensure_ascii=False)
-        combined_input = f"참고할 정책 정보: {policies_json}\n\n사용자 질문: {user_input}"
+        print("\n=== RAG TOP-K ===")
+        print(f"질문: {user_input}")
+        for item in retrieved_chunks:
+            print(
+                f"[{item['rank']}] "
+                f"title={item.get('title', '')} | "
+                f"score={item.get('score', 0):.4f} | "
+                f"doc_id={item.get('doc_id', '')}"
+            )
+        print("=================\n")
+
+        combined_input = (
+            f"[검색된 정책 정보]\n{context_text}\n\n"
+            f"[사용자 질문]\n{user_input}"
+        )
 
         history2 = history + [{"role": "user", "content": combined_input}]
 
@@ -364,7 +438,6 @@ class LlamaService:
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
-                    output_attentions=True,
                     return_dict_in_generate=True,
                     do_sample=True,
                     temperature=0.6,
@@ -379,56 +452,7 @@ class LlamaService:
                 full_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
                 response = full_text.strip()
 
-            xai_data = []
-
-            try:
-                step0_last_layer = outputs.attentions[0][-1]
-                attn_mean = step0_last_layer[0].mean(dim=0)
-                input_weights = attn_mean[-1, :input_length]
-
-                top_k = min(20, input_length)
-                top_indices = torch.topk(input_weights, top_k).indices.tolist()
-
-                seen_words = set()
-                cleaned_tags = []
-
-                for idx in top_indices:
-                    token_id = inputs["input_ids"][0][idx].item()
-                    word = self.tokenizer.decode([token_id], skip_special_tokens=True).strip()
-
-                    if not word:
-                        continue
-                    if len(word) <= 1:
-                        continue
-                    if word.startswith("<") or word.endswith(">"):
-                        continue
-
-                    bad_tokens = {
-                        ",", ".", ":", ";", "!", "?", "\"", "'", "`",
-                        "(", ")", "[", "]", "{", "}", "\\", "/", "|",
-                        "assistant", "user", "system"
-                    }
-                    if word in bad_tokens:
-                        continue
-
-                    word = word.replace("\n", " ").strip()
-
-                    if word in seen_words:
-                        continue
-                    seen_words.add(word)
-
-                    cleaned_tags.append({
-                        "word": word,
-                        "score": round(float(input_weights[idx].item()) * 100, 2)
-                    })
-
-                    if len(cleaned_tags) >= 5:
-                        break
-
-                xai_data = cleaned_tags
-
-            except Exception:
-                xai_data = []
+            xai_data = self.build_xai_tags_from_retrieval(user_input, retrieved_chunks)
 
             return response, history2 + [{"role": "assistant", "content": response}], xai_data
 

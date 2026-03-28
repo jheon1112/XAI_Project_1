@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>청년 정책 XAI 상담소</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <style>
@@ -30,13 +30,17 @@
             --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.06);
 
             --radius-xl: 28px;
+
+            --app-height: 100vh;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         * {
             box-sizing: border-box;
         }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
             min-height: 100%;
@@ -49,14 +53,21 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        html {
+            height: -webkit-fill-available;
+        }
+
         body {
             min-height: 100vh;
+            min-height: 100dvh;
+            min-height: var(--app-height);
             padding: 22px;
+            overscroll-behavior-y: none;
         }
 
         .app {
             width: min(1120px, 100%);
-            height: calc(100vh - 44px);
+            height: calc(var(--app-height) - 44px);
             margin: 0 auto;
             border-radius: var(--radius-xl);
             border: 1px solid rgba(255, 255, 255, 0.55);
@@ -67,9 +78,12 @@
             grid-template-columns: 300px 1fr;
             overflow: hidden;
             min-height: 0;
+            max-height: calc(var(--app-height) - 44px);
+            position: relative;
         }
 
         .sidebar {
+            position: relative;
             padding: 24px 20px 20px;
             border-right: 1px solid var(--line);
             background:
@@ -243,10 +257,11 @@
         }
 
         .main {
-            display: grid;
-            grid-template-rows: auto minmax(0, 1fr) auto;
+            display: flex;
+            flex-direction: column;
             min-width: 0;
             min-height: 0;
+            height: 100%;
             background: linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.18));
         }
 
@@ -286,7 +301,15 @@
             line-height: 1.55;
         }
 
-        .reset-btn {
+        .topbar__actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .reset-btn,
+        .help-btn {
             border: 1px solid var(--line-strong);
             background: rgba(255,255,255,0.88);
             color: var(--text);
@@ -300,20 +323,49 @@
             flex-shrink: 0;
         }
 
-        .reset-btn:hover {
+        .reset-btn:hover,
+        .help-btn:hover {
             background: #fff;
             border-color: rgba(37, 99, 235, 0.28);
             color: var(--primary-strong);
             transform: translateY(-1px);
         }
 
+        .help-btn {
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-close {
+            display: none;
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.92);
+            color: var(--text);
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sidebar-backdrop {
+            display: none;
+        }
+
         .chat-area {
+            flex: 1 1 auto;
             min-height: 0;
-            height: 100%;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 22px 24px 26px;
+            padding: 22px 24px 20px;
             scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .chat-area::-webkit-scrollbar {
@@ -368,7 +420,7 @@
             display: flex;
             flex-direction: column;
             gap: 18px;
-            min-height: 100%;
+            min-height: auto;
         }
 
         .message-row {
@@ -413,6 +465,7 @@
             flex-direction: column;
             gap: 6px;
             max-width: min(72%, 560px);
+            min-width: 0;
         }
 
         .message-meta {
@@ -436,7 +489,8 @@
             border-radius: 22px;
             line-height: 1.68;
             font-size: 14px;
-            word-break: break-word;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
             white-space: pre-wrap;
             box-shadow: var(--shadow-md);
             position: relative;
@@ -482,8 +536,14 @@
         }
 
         @keyframes bounce {
-            0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
-            40% { transform: translateY(-4px); opacity: 1; }
+            0%, 80%, 100% {
+                transform: translateY(0);
+                opacity: 0.45;
+            }
+            40% {
+                transform: translateY(-4px);
+                opacity: 1;
+            }
         }
 
         .analysis-stack {
@@ -530,6 +590,8 @@
         .user-highlight {
             line-height: 1.9;
             word-break: keep-all;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
         }
 
         .user-highlight-word {
@@ -547,7 +609,7 @@
         }
 
         .composer {
-            padding: 18px 22px 22px;
+            padding: 18px 22px calc(22px + var(--safe-bottom));
             border-top: 1px solid var(--line);
             background: rgba(255, 255, 255, 0.52);
             backdrop-filter: blur(10px);
@@ -578,6 +640,7 @@
             border-radius: 22px;
             box-shadow: var(--shadow-sm);
             overflow: hidden;
+            min-width: 0;
         }
 
         .composer-input {
@@ -593,6 +656,7 @@
             font-size: 14px;
             line-height: 1.6;
             padding: 18px;
+            display: block;
         }
 
         .composer-input::placeholder {
@@ -644,12 +708,9 @@
 
             .app {
                 grid-template-columns: 1fr;
-                height: calc(100vh - 28px);
+                height: calc(var(--app-height) - 28px);
+                max-height: calc(var(--app-height) - 28px);
                 min-height: 0;
-            }
-
-            .sidebar {
-                display: none;
             }
 
             .topbar,
@@ -659,7 +720,7 @@
             }
 
             .chat-area {
-                padding: 16px 16px 22px;
+                padding: 16px 16px 26px;
             }
 
             .bubble-wrap {
@@ -671,8 +732,64 @@
                 flex-direction: column;
             }
 
-            .reset-btn {
-                align-self: flex-end;
+            .topbar__actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .help-btn {
+                display: inline-flex;
+            }
+
+            .sidebar {
+                display: flex;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: min(320px, 86vw);
+                height: 100vh;
+                height: 100dvh;
+                z-index: 1002;
+                transform: translateX(-100%);
+                transition: transform 0.24s ease;
+                border-radius: 0 24px 24px 0;
+                border-right: 1px solid var(--line);
+                box-shadow: var(--shadow-lg);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding-top: 24px;
+                background: #ffffff;
+                backdrop-filter: none;
+            }
+
+            .sidebar.is-open {
+                transform: translateX(0);
+            }
+
+            .sidebar-backdrop {
+                display: block;
+                position: absolute;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.16);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease;
+                z-index: 1001;
+            }
+
+            .sidebar-backdrop.is-open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .sidebar-close {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            body.sidebar-open {
+                overflow: hidden;
             }
         }
 
@@ -682,18 +799,23 @@
             }
 
             .app {
-                height: calc(100vh - 16px);
+                height: calc(var(--app-height) - 16px);
+                max-height: calc(var(--app-height) - 16px);
                 border-radius: 22px;
                 min-height: 0;
             }
 
             .bubble-wrap {
-                max-width: 90%;
+                max-width: 94%;
             }
 
             .bubble {
                 font-size: 13px;
                 padding: 13px 14px;
+            }
+
+            .intro-card {
+                margin-bottom: 16px;
             }
 
             .intro-card h3 {
@@ -715,19 +837,98 @@
                 min-height: 56px;
                 padding: 16px;
             }
+
+            .topbar__desc {
+                font-size: 11px;
+            }
+
+            .help-btn {
+                padding: 10px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 0;
+            }
+
+            .app {
+                width: 100%;
+                height: var(--app-height);
+                max-height: var(--app-height);
+                border-radius: 0;
+                border: none;
+            }
+
+            .topbar,
+            .composer {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .chat-area {
+                padding: 12px 12px 22px;
+            }
+
+            .topbar__desc {
+                display: none;
+            }
+
+            .composer-form {
+                grid-template-columns: 1fr auto;
+                gap: 10px;
+            }
+
+            .send-btn {
+                width: 48px;
+                min-width: 48px;
+                height: 48px;
+                border-radius: 14px;
+                flex-shrink: 0;
+            }
+
+            .composer-input {
+                min-height: 52px;
+                max-height: 160px;
+                padding: 15px 16px;
+            }
+
+            .intro-card {
+                padding: 16px 14px 14px;
+                border-radius: 18px;
+            }
+
+            .bubble-wrap {
+                max-width: 100%;
+            }
+
+            .message-row {
+                gap: 10px;
+            }
+
+            .avatar {
+                width: 34px;
+                height: 34px;
+                border-radius: 14px;
+                font-size: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="app">
         <aside class="sidebar">
+            <button id="sidebar-close" class="sidebar-close" type="button" aria-label="도움말 닫기">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
             <div class="brand">
                 <div class="brand__logo">
                     <i class="fa-solid fa-comments-dollar"></i>
                 </div>
                 <div class="brand__text">
                     <h1>청년 정책 XAI 상담소</h1>
-                    <p>로컬 LLaMA + Captum 기반 정책 상담 데모</p>
+                    <p>로컬 LLaMA + Captum 기반 정책 상담</p>
                 </div>
             </div>
 
@@ -782,27 +983,38 @@
                 <div class="example-chip-wrap">
                     <button class="example-chip" type="button">자격증 지원</button>
                     <button class="example-chip" type="button">월세 지원</button>
-                    <button class="example-chip" type="button">면접 정장 대여</button>
+                    <button class="example-chip" type="button">취업 지원</button>
                     <button class="example-chip" type="button">창업 지원</button>
+                    <button class="example-chip" type="button">자산 형성</button>
                 </div>
             </section>
         </aside>
+
+        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
         <section class="main">
             <header class="topbar">
                 <div class="topbar__left">
                     <div class="topbar__title">
                         <i class="fa-solid fa-sparkles"></i>
-                        <span>정책 상담 채팅</span>
+                        <span>청년 정책 XAI 상담 채팅</span>
                     </div>
                     <p class="topbar__desc">
                         질문을 입력하면 정책 답변과 함께, 입력 문장에서 중요하게 작용한 토큰을 색으로 확인할 수 있습니다.
                     </p>
                 </div>
-                <button id="reset-btn" class="reset-btn" type="button">
-                    <i class="fa-solid fa-rotate-right"></i>
-                    새 대화 시작
-                </button>
+
+                <div class="topbar__actions">
+                    <button id="help-btn" class="help-btn" type="button" aria-label="도움말 열기" aria-expanded="false">
+                        <span>도움말</span>
+                        <i class="fa-solid fa-circle-question"></i>
+                    </button>
+
+                    <button id="reset-btn" class="reset-btn" type="button">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        새 대화 시작
+                    </button>
+                </div>
             </header>
 
             <main id="chat-window" class="chat-area">
@@ -832,7 +1044,7 @@
 
             <footer class="composer">
                 <div class="composer__hint">
-                    민감한 개인정보는 입력하지 말고, 필요한 상황 정보만 간단히 적어주세요.
+                    민감한 개인정보는 입력하지 말고, 필요한 상황 정보만 적어주세요.
                 </div>
                 <form id="chat-form" class="composer-form">
                     <div class="input-shell">
@@ -851,6 +1063,7 @@
         </section>
     </div>
 
+
     <script>
         const form = document.getElementById('chat-form');
         const input = document.getElementById('user-input');
@@ -858,7 +1071,49 @@
         const messages = document.getElementById('messages');
         const sendBtn = document.getElementById('send-btn');
         const resetBtn = document.getElementById('reset-btn');
+        const helpBtn = document.getElementById('help-btn');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const sidebarBackdrop = document.getElementById('sidebar-backdrop');
         const exampleChips = document.querySelectorAll('.example-chip');
+
+        function setAppHeight() {
+            const viewportHeight = window.visualViewport
+                ? window.visualViewport.height
+                : window.innerHeight;
+
+            document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
+        }
+
+        function openSidebar() {
+            if (window.innerWidth > 960) return;
+
+            sidebar.classList.add('is-open');
+            sidebarBackdrop.classList.add('is-open');
+            document.body.classList.add('sidebar-open');
+            helpBtn?.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('is-open');
+            sidebarBackdrop.classList.remove('is-open');
+            document.body.classList.remove('sidebar-open');
+            helpBtn?.setAttribute('aria-expanded', 'false');
+        }
+
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setAppHeight);
+            window.visualViewport.addEventListener('scroll', setAppHeight);
+        }
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 960) {
+                closeSidebar();
+            }
+        });
 
         const sessionId = localStorage.getItem('chat_session_id') || (() => {
             const id = crypto.randomUUID();
@@ -871,7 +1126,26 @@
             input.style.height = Math.min(input.scrollHeight, 180) + 'px';
         }
 
+        function scrollToBottom(forceSmooth = false) {
+            if (forceSmooth) {
+                chatWindow.scrollTo({
+                    top: chatWindow.scrollHeight,
+                    behavior: 'smooth'
+                });
+                return;
+            }
+
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
         input.addEventListener('input', autoResizeTextarea);
+
+        input.addEventListener('focus', () => {
+            setAppHeight();
+            setTimeout(() => {
+                scrollToBottom();
+            }, 250);
+        });
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -880,11 +1154,56 @@
             }
         });
 
+        helpBtn?.addEventListener('click', openSidebar);
+        sidebarClose?.addEventListener('click', closeSidebar);
+        sidebarBackdrop?.addEventListener('click', closeSidebar);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeSidebar();
+            }
+        });
+
         exampleChips.forEach((chip) => {
             chip.addEventListener('click', () => {
-                input.value = chip.textContent + ' 관련 정책 알려줘';
+                const chipText = chip.textContent.trim();
+                let template = "";
+
+                // 버튼 이름별 맞춤형 템플릿 설정
+                switch (chipText) {
+                    case '자격증 지원':
+                        template = `자격증 지원 프로그램이 궁금해.\n지역:\n나이:\n취업 여부:`;
+                        break;
+                    case '월세 지원':
+                        template = `월세 지원 정책에 대해 알려줘.\n지역:\n나이:\n현재 거주지 유형:\n소득수준:`;
+                        break;
+                    case '취업 지원':
+                        template = `취업 지원 프로그램에 대해 알려줘.\n관심 직무:\n지역:\n현재 상태(학생/준비생):\n희망 기업 규모:`;
+                        break;
+                    case '창업 지원':
+                        template = `청년 창업 지원금에 대해 궁금해.\n나이:\n희망 창업 분야:\n사업자 등록 여부:`;
+                        break;
+                    case '자산 형성':
+                        template = `청년을 위한 자산 형성 지원 정책이 궁금해.\n현재 직업(재직/준비생):\n월 평균 소득:\n거주 지역:\n중위소득 비율:`;
+                        break;
+                    default:
+                        template = `${chipText} 관련 정책 알려줘.`;
+                }
+
+                // 입력창에 템플릿 삽입 및 UI 업데이트
+                input.value = template;
                 autoResizeTextarea();
                 input.focus();
+
+                // 모바일 브라우저일 경우 사이드바 닫기
+                if (window.innerWidth <= 960) {
+                    closeSidebar();
+                }
+
+                // 입력 내용이 잘 보이도록 하단으로 스크롤
+                setTimeout(() => {
+                    scrollToBottom(true);
+                }, 120);
             });
         });
 
@@ -894,10 +1213,6 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        }
-
-        function scrollToBottom() {
-            chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
         function createTypingIndicator() {
@@ -987,9 +1302,7 @@
         }
 
         function getWordHighlightColor(score, rank) {
-            // score: 0 ~ 1
-            // rank: 중요도 순위
-            if (rank === 0) return 'rgba(255,255,255,0.42)';
+            if (rank === 0) return 'rgba(255,230,120,0.6)';
             if (rank <= 2) return 'rgba(255,255,255,0.30)';
             if (score >= 0.35) return 'rgba(255,255,255,0.20)';
             return 'transparent';
@@ -1008,7 +1321,6 @@
                 return `<div>${escapeHtml(originalMessage)}</div>`;
             }
 
-            // 중요도 순위 계산
             const ranked = [...words]
                 .map((w, idx) => ({ ...w, originalIndex: idx }))
                 .sort((a, b) => b.score - a.score);
@@ -1030,7 +1342,6 @@
                 const key = `${w.start}-${w.end}`;
                 const rank = rankMap.get(key) ?? 999;
                 const bg = getWordHighlightColor(w.score, rank);
-
                 const wordText = originalMessage.slice(w.start, w.end);
 
                 if (bg === 'transparent') {
@@ -1171,6 +1482,10 @@
                 input.disabled = false;
                 input.focus();
                 autoResizeTextarea();
+
+                setTimeout(() => {
+                    scrollToBottom();
+                }, 100);
             }
         }
 
