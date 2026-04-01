@@ -260,47 +260,6 @@ class LlamaService:
             )
         return "\n\n".join(lines)
 
-    def build_xai_tags_from_retrieval(self, query: str, retrieved_chunks: List[dict]) -> List[dict]:
-        """
-        임시 중요 단어 배지용. 질의와 검색된 문맥에 공통으로 등장하는 키워드를 간단히 추출한다.
-        기존 attention 태그보다 안정적이다.
-        """
-        import re
-
-        query_words = re.findall(r"[가-힣A-Za-z0-9]{2,}", query)
-        if not query_words:
-            return []
-
-        joined_context = " ".join(
-            f"{item.get('title', '')} {item.get('chunk_text', '')} {item.get('summary', '')}"
-            for item in retrieved_chunks
-        )
-
-        scores = []
-        seen = set()
-        for word in query_words:
-            if word in seen:
-                continue
-            seen.add(word)
-            count = joined_context.count(word)
-            if count > 0:
-                scores.append({"word": word, "score": float(count)})
-
-        scores.sort(key=lambda x: x["score"], reverse=True)
-        top = scores[:5]
-
-        if not top:
-            return []
-
-        max_score = max(item["score"] for item in top) or 1.0
-        return [
-            {
-                "word": item["word"],
-                "score": round(item["score"] / max_score * 100, 2)
-            }
-            for item in top
-        ]
-
     def captum_forward_func(self, input_ids, attention_mask):
         outputs = self.model(
             input_ids=input_ids,
@@ -345,7 +304,7 @@ class LlamaService:
                 additional_forward_args=(attention_mask,),
                 target=target_token_id,
                 return_convergence_delta=True,
-                n_steps=4,
+                n_steps=16,
                 internal_batch_size=1
             )
 
@@ -452,9 +411,7 @@ class LlamaService:
                 full_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
                 response = full_text.strip()
 
-            xai_data = self.build_xai_tags_from_retrieval(user_input, retrieved_chunks)
-
-            return response, history2 + [{"role": "assistant", "content": response}], xai_data
+            return response, history2 + [{"role": "assistant", "content": response}]
 
         finally:
             if torch.cuda.is_available():
