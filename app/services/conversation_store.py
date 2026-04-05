@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -131,7 +132,7 @@ class ConversationStore:
         self._save_index(index_data)
 
         return conversation_data
-    
+
     def build_llama_history(self, conversation_id: str, user_id: str) -> List[Dict[str, str]]:
         conversation_data = self.get_conversation(conversation_id, user_id)
 
@@ -185,6 +186,21 @@ class ConversationStore:
         self._save_index(index_data)
 
         return conversation_data
+
+    def maybe_update_title_from_first_user_message(
+        self,
+        conversation_id: str,
+        user_id: str,
+        user_message: str,
+    ) -> Dict[str, Any]:
+        conversation_data = self.get_conversation(conversation_id, user_id)
+        current_title = conversation_data.get("title", "")
+
+        if not self._is_default_title(current_title):
+            return conversation_data
+
+        auto_title = self._make_auto_title(user_message)
+        return self.update_conversation_title(conversation_id, user_id, auto_title)
 
     def delete_conversation(self, conversation_id: str, user_id: str) -> None:
         self.get_conversation(conversation_id, user_id)
@@ -244,6 +260,40 @@ class ConversationStore:
     def _normalize_title(self, title: str | None) -> str:
         normalized = (title or "").strip()
         return normalized if normalized else "새 채팅"
+
+    def _is_default_title(self, title: str | None) -> bool:
+        return self._normalize_title(title) == "새 채팅"
+
+    def _make_auto_title(self, user_message: str) -> str:
+        text = (user_message or "").strip()
+
+        if not text:
+            return "새 채팅"
+
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"[\r\n\t]+", " ", text)
+        text = re.sub(r"[\"'`]", "", text)
+
+        prefixes = [
+            "안녕하세요",
+            "안녕",
+            "혹시",
+            "그럼",
+            "저는",
+            "제가",
+            "나는",
+            "이거",
+            "그거",
+        ]
+        for prefix in prefixes:
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip(" ,.!?")
+
+        if len(text) <= 18:
+            return text if text else "새 채팅"
+
+        cut = text[:18].rstrip(" ,.!?")
+        return f"{cut}..."
 
     def _atomic_write_json(self, path: Path, data: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

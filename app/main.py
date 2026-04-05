@@ -123,6 +123,13 @@ async def chat(request: ChatRequest):
                 "user",
                 request.message,
             )
+
+            store.maybe_update_title_from_first_user_message(
+                request.conversation_id,
+                request.user_id,
+                request.message,
+            )
+
             store.append_message(
                 request.conversation_id,
                 request.user_id,

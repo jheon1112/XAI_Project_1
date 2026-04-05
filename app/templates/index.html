@@ -8,12 +8,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-    
 </head>
 <body>
     <div class="app">
         <aside class="conversation-panel">
             <div class="conversation-panel__header">
+                <button id="conversation-close" class="conversation-close" type="button" aria-label="채팅목록 닫기">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
                 <div class="conversation-panel__title-wrap">
                     <span class="conversation-panel__eyebrow">Chats</span>
                     <h2 class="conversation-panel__title">대화 목록</h2>
@@ -31,9 +34,6 @@
                 </div>
             </div>
         </aside>
-        
-
-        
 
         <section class="main">
             <header class="topbar">
@@ -48,6 +48,17 @@
                 </div>
 
                 <div class="topbar__actions">
+                    <button
+                        id="conversation-toggle-btn"
+                        class="conversation-toggle-btn"
+                        type="button"
+                        aria-label="채팅목록 열기"
+                        aria-expanded="false"
+                    >
+                        <span>채팅목록</span>
+                        <i class="fa-solid fa-bars-staggered"></i>
+                    </button>
+
                     <button id="help-btn" class="help-btn" type="button" aria-label="도움말 열기" aria-expanded="false">
                         <span>도움말</span>
                         <i class="fa-solid fa-circle-question"></i>
@@ -73,16 +84,7 @@
                     </p>
                 </div>
 
-                <div id="messages" class="messages">
-                    <div class="message-row message-row--bot fade-in">
-                        <div class="avatar avatar--bot">AI</div>
-                        <div class="bubble-wrap">
-                            <div class="message-meta">정책 상담 AI</div>
-                            <div class="bubble bubble--bot">안녕하세요! 자격증, 월세, 취업, 창업, 면접 준비처럼 궁금한 정책을 말씀해 주세요.
-상황을 조금 더 자세히 적어주시면 더 적합한 지원 제도를 정리해드릴게요.</div>
-                        </div>
-                    </div>
-                </div>
+                <div id="messages" class="messages"></div>
             </main>
 
             <footer class="composer">
@@ -105,9 +107,6 @@
             </footer>
         </section>
 
-        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
-
-        
         <aside class="sidebar">
             <button id="sidebar-close" class="sidebar-close" type="button" aria-label="도움말 닫기">
                 <i class="fa-solid fa-xmark"></i>
@@ -180,6 +179,9 @@
                 </div>
             </section>
         </aside>
+
+        <div id="conversation-backdrop" class="conversation-backdrop"></div>
+        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
     </div>
 
     <div id="heatmap-modal" class="heatmap-modal" hidden>
@@ -201,7 +203,6 @@
             </div>
         </div>
     </div>
-
 
     <script src="/static/js/chat.js"></script>
 </body>
