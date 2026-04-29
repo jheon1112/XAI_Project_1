@@ -8,7 +8,6 @@ from app.services.conversation_store import ConversationStore
 import uvicorn
 import asyncio
 from collections import defaultdict
-from typing import Dict, List
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -16,7 +15,6 @@ templates = Jinja2Templates(directory="app/templates")
 
 engine = LlamaService()
 store = ConversationStore()
-session_histories: Dict[str, List[dict]] = {}
 session_locks = defaultdict(asyncio.Lock)
 
 class ChatRequest(BaseModel):
@@ -141,10 +139,6 @@ async def chat(request: ChatRequest):
         except Exception as e:
             _raise_store_http_error(e)
     
-
-@app.post("/reset")
-async def reset():
-    return {"ok": True}
 
 @app.post("/captum")
 async def captum(request: ChatRequest):
