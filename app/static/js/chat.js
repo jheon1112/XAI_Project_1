@@ -10,6 +10,9 @@ const sidebar = document.querySelector('.sidebar');
 const sidebarClose = document.getElementById('sidebar-close');
 const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 
+const currentChatTitle = document.getElementById('current-chat-title');
+const DEFAULT_TOPBAR_TITLE = '청년 정책 XAI 상담 채팅';
+
 const conversationPanel = document.querySelector('.conversation-panel');
 const conversationToggleBtn = document.getElementById('conversation-toggle-btn');
 const conversationClose = document.getElementById('conversation-close');
@@ -21,6 +24,13 @@ const heatmapModal = document.getElementById('heatmap-modal');
 const heatmapBackdrop = document.getElementById('heatmap-backdrop');
 const heatmapClose = document.getElementById('heatmap-close');
 const heatmapContent = document.getElementById('heatmap-content');
+
+const deleteModal = document.getElementById('delete-modal');
+const deleteBackdrop = document.getElementById('delete-backdrop');
+const deleteClose = document.getElementById('delete-close');
+const deleteCancel = document.getElementById('delete-cancel');
+const deleteConfirm = document.getElementById('delete-confirm');
+const deleteDescription = document.getElementById('delete-description');
 
 const conversationList = document.getElementById('conversation-list');
 const newChatBtn = document.getElementById('new-chat-btn');
@@ -37,6 +47,8 @@ const userId = localStorage.getItem('chat_user_id') || (() => {
 })();
 
 let currentConversationId = localStorage.getItem('current_conversation_id') || '';
+let editingConversationId = '';
+let pendingDeleteConversation = null;
 
 /* -----------------------------
  * Layout / viewport helpers
@@ -95,6 +107,19 @@ function closeConversationPanel() {
     conversationPanel?.classList.remove('is-open');
     conversationBackdrop?.classList.remove('is-open');
     conversationToggleBtn?.setAttribute('aria-expanded', 'false');
+    unlockOverlayScrollIfNeeded();
+}
+
+function openDeleteModal(conversation) {
+    pendingDeleteConversation = conversation;
+    deleteDescription.textContent = `"${conversation.title || '새 채팅'}" 대화를 삭제할까요?`;
+    deleteModal.hidden = false;
+    document.body.classList.add('sidebar-open');
+}
+
+function closeDeleteModal() {
+    deleteModal.hidden = true;
+    pendingDeleteConversation = null;
     unlockOverlayScrollIfNeeded();
 }
 
@@ -188,6 +213,32 @@ function hideIntroCard() {
     }
 }
 
+function getDisplayConversationTitle(title) {
+    const normalized = (title || '').trim();
+
+    if (!normalized || normalized === '새 채팅') {
+        return DEFAULT_TOPBAR_TITLE;
+    }
+
+    return normalized;
+}
+
+function setCurrentChatTitle(title) {
+    if (!currentChatTitle) return;
+    currentChatTitle.textContent = getDisplayConversationTitle(title);
+}
+
+function applyCurrentConversationTitleFromConversation(conversation) {
+    setCurrentChatTitle(conversation?.title);
+}
+
+function applyCurrentConversationTitleFromList(conversations) {
+    const current = (conversations || []).find(
+        (item) => item.conversation_id === currentConversationId
+    );
+    setCurrentChatTitle(current?.title);
+}
+
 /* -----------------------------
  * API helpers
  * ----------------------------- */
@@ -237,6 +288,33 @@ async function fetchConversationDetail(conversationId) {
     );
 
     return data.conversation;
+}
+
+async function updateConversationTitleApi(conversationId, title) {
+    const data = await fetchJson(
+        `/conversations/${encodeURIComponent(conversationId)}/title`,
+        {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                title
+            })
+        },
+        '대화 제목 수정 오류'
+    );
+
+    return data.conversation;
+}
+
+async function deleteConversationApi(conversationId) {
+    return fetchJson(
+        `/conversations/${encodeURIComponent(conversationId)}?user_id=${encodeURIComponent(userId)}`,
+        {
+            method: 'DELETE'
+        },
+        '대화 삭제 오류'
+    );
 }
 
 async function callChatAPI(message) {
@@ -292,6 +370,7 @@ async function ensureConversationReady() {
 async function refreshConversationList() {
     const conversations = await fetchConversationList();
     renderConversationList(conversations);
+    applyCurrentConversationTitleFromList(conversations);
 }
 
 async function createAndSwitchConversation() {
@@ -305,6 +384,30 @@ async function createAndSwitchConversation() {
     if (window.innerWidth <= 960) {
         closeConversationPanel();
     }
+}
+
+async function deleteConversationAndRecover(conversationId) {
+    await deleteConversationApi(conversationId);
+
+    if (currentConversationId === conversationId) {
+        currentConversationId = '';
+        localStorage.removeItem('current_conversation_id');
+
+        const conversations = await fetchConversationList();
+
+        if (conversations.length > 0) {
+            currentConversationId = conversations[0].conversation_id;
+            localStorage.setItem('current_conversation_id', currentConversationId);
+        } else {
+            const newConversation = await createConversation('새 채팅');
+            currentConversationId = newConversation.conversation_id;
+            localStorage.setItem('current_conversation_id', currentConversationId);
+        }
+
+        await loadCurrentConversation();
+    }
+
+    await refreshConversationList();
 }
 
 /* -----------------------------
@@ -323,16 +426,107 @@ function renderConversationList(conversations) {
     }
 
     conversations.forEach((conv) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `conversation-item${conv.conversation_id === currentConversationId ? ' is-active' : ''}`;
+        const item = document.createElement('div');
+        item.className = `conversation-item${conv.conversation_id === currentConversationId ? ' is-active' : ''}`;
 
-        button.innerHTML = `
+        const isEditing = editingConversationId === conv.conversation_id;
+
+        if (isEditing) {
+            const editWrap = document.createElement('div');
+            editWrap.className = 'conversation-item__edit';
+
+            const inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.className = 'conversation-edit-input';
+            inputEl.value = conv.title || '새 채팅';
+            inputEl.maxLength = 60;
+
+            const actions = document.createElement('div');
+            actions.className = 'conversation-edit-actions';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'conversation-inline-btn';
+            cancelBtn.textContent = '취소';
+
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                editingConversationId = '';
+                refreshConversationList();
+            });
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'button';
+            saveBtn.className = 'conversation-inline-btn conversation-inline-btn--save';
+            saveBtn.textContent = '저장';
+
+            const submitEdit = async () => {
+                const trimmed = inputEl.value.trim();
+                if (!trimmed) {
+                    alert('제목은 비워둘 수 없습니다.');
+                    inputEl.focus();
+                    return;
+                }
+
+                try {
+                    await updateConversationTitleApi(conv.conversation_id, trimmed);
+                    editingConversationId = '';
+                    await refreshConversationList();
+                } catch (error) {
+                    console.error(error);
+                    alert('제목을 수정하지 못했습니다.');
+                }
+            };
+
+            saveBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await submitEdit();
+            });
+
+            inputEl.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    await submitEdit();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    editingConversationId = '';
+                    await refreshConversationList();
+                }
+            });
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(saveBtn);
+
+            editWrap.appendChild(inputEl);
+            editWrap.appendChild(actions);
+
+            item.appendChild(editWrap);
+            conversationList.appendChild(item);
+
+            setTimeout(() => {
+                inputEl.focus();
+                inputEl.select();
+            }, 0);
+
+            return;
+        }
+
+        const contentBtn = document.createElement('button');
+        contentBtn.type = 'button';
+        contentBtn.className = 'conversation-item__content';
+        contentBtn.style.all = 'unset';
+        contentBtn.style.cursor = 'pointer';
+        contentBtn.style.display = 'block';
+        contentBtn.style.minWidth = '0';
+        contentBtn.style.flex = '1 1 auto';
+
+        contentBtn.innerHTML = `
             <div class="conversation-item__title">${escapeHtml(conv.title || '새 채팅')}</div>
             <div class="conversation-item__meta">${formatConversationDate(conv.updated_at)}</div>
         `;
 
-        button.addEventListener('click', async () => {
+        contentBtn.addEventListener('click', async () => {
             if (currentConversationId === conv.conversation_id) {
                 if (window.innerWidth <= 960) {
                     closeConversationPanel();
@@ -351,7 +545,39 @@ function renderConversationList(conversations) {
             }
         });
 
-        conversationList.appendChild(button);
+        const actions = document.createElement('div');
+        actions.className = 'conversation-item__actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'conversation-action-btn';
+        editBtn.setAttribute('aria-label', '제목 수정');
+        editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+
+        editBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            editingConversationId = conv.conversation_id;
+            await refreshConversationList();
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'conversation-action-btn conversation-action-btn--danger';
+        deleteBtn.setAttribute('aria-label', '대화 삭제');
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteModal(conv);
+        });
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+
+        item.appendChild(contentBtn);
+        item.appendChild(actions);
+
+        conversationList.appendChild(item);
     });
 }
 
@@ -439,6 +665,7 @@ async function loadCurrentConversation() {
     let conversation;
     try {
         conversation = await fetchConversationDetail(conversationId);
+        applyCurrentConversationTitleFromConversation(conversation);
     } catch (error) {
         console.warn('대화방 로드 실패, 새 대화방으로 복구합니다:', error);
         localStorage.removeItem('current_conversation_id');
@@ -604,6 +831,7 @@ function buildHeatmapModalHtml(originalMessage, captumResult) {
 }
 
 function openHeatmapModal(originalMessage, captumResult) {
+    closeDeleteModal();
     heatmapContent.innerHTML = buildHeatmapModalHtml(originalMessage, captumResult);
     heatmapModal.hidden = false;
     document.body.classList.add('sidebar-open');
@@ -617,6 +845,26 @@ function closeHeatmapModal() {
 
 heatmapClose?.addEventListener('click', closeHeatmapModal);
 heatmapBackdrop?.addEventListener('click', closeHeatmapModal);
+deleteClose?.addEventListener('click', closeDeleteModal);
+deleteBackdrop?.addEventListener('click', closeDeleteModal);
+deleteCancel?.addEventListener('click', closeDeleteModal);
+
+deleteConfirm?.addEventListener('click', async () => {
+    if (!pendingDeleteConversation) return;
+
+    try {
+        await deleteConversationAndRecover(pendingDeleteConversation.conversation_id);
+
+        if (window.innerWidth <= 960) {
+            closeConversationPanel();
+        }
+
+        closeDeleteModal();
+    } catch (error) {
+        console.error(error);
+        alert('대화를 삭제하지 못했습니다.');
+    }
+});
 
 function buildHeatmapButton(originalMessage, captumResult) {
     if (!captumResult || !Array.isArray(captumResult.word_scores) || captumResult.word_scores.length === 0) {
@@ -746,6 +994,11 @@ input.addEventListener('keydown', (e) => {
         e.preventDefault();
         form.requestSubmit();
     }
+
+    if (!deleteModal.hidden) {
+    closeDeleteModal();
+    return;
+}
 });
 
 form.addEventListener('submit', async (e) => {
@@ -853,6 +1106,7 @@ document.addEventListener('keydown', (e) => {
  * Bootstrap
  * ----------------------------- */
 async function bootstrapApp() {
+    setCurrentChatTitle(DEFAULT_TOPBAR_TITLE);
     try {
         await ensureConversationReady();
         await refreshConversationList();

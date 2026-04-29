@@ -40,7 +40,7 @@
                 <div class="topbar__left">
                     <div class="topbar__title">
                         <i class="fa-solid fa-sparkles"></i>
-                        <span>청년 정책 XAI 상담 채팅</span>
+                        <span id="current-chat-title" class="topbar__title-text">청년 정책 XAI 상담 채팅</span>
                     </div>
                     <p class="topbar__desc">
                         질문을 입력하면 정책 답변과 함께, 입력 문장에서 중요하게 작용한 단어를 색으로 확인할 수 있습니다.
@@ -182,6 +182,33 @@
 
         <div id="conversation-backdrop" class="conversation-backdrop"></div>
         <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+    </div>
+
+    <div id="delete-modal" class="delete-modal" hidden>
+        <div id="delete-backdrop" class="delete-modal__backdrop"></div>
+
+        <div class="delete-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <div class="delete-modal__header">
+                <h3 id="delete-title">대화 삭제</h3>
+                <button id="delete-close" class="delete-modal__close" type="button" aria-label="닫기">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="delete-modal__body">
+                <p id="delete-description" class="delete-modal__description">
+                    이 대화를 삭제할까요?
+                </p>
+                <p class="delete-modal__note">
+                    삭제하면 되돌릴 수 없습니다.
+                </p>
+            </div>
+
+            <div class="delete-modal__footer">
+                <button id="delete-cancel" class="delete-modal__cancel" type="button">취소</button>
+                <button id="delete-confirm" class="delete-modal__confirm" type="button">삭제</button>
+            </div>
+        </div>
     </div>
 
     <div id="heatmap-modal" class="heatmap-modal" hidden>
