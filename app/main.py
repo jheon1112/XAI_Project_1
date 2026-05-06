@@ -3,7 +3,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from app.services.llama_service import LlamaService
+from app.services.model_service import ModelService
+#from app.services.llama_service import LlamaService
 from app.services.conversation_store import ConversationStore
 import uvicorn
 import asyncio
@@ -13,7 +14,7 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-engine = LlamaService()
+engine = ModelService()
 store = ConversationStore()
 session_locks = defaultdict(asyncio.Lock)
 
